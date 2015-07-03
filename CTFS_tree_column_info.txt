@@ -1,0 +1,18 @@
+tag	Tag number used in the field.
+sp	The species mnemonic. This mnemonic is crucial in joining various databases.
+quadrat	Quadrat designation
+x	The x coordinate within the plot.
+y	The y coordinate within the plot.
+notes	A columns of field notes.
+subquad	Subquad withing the quadrat (if applicable)
+dbh	Diameter of the stem.
+pom	The point-of-measure, where the diameter was taken, identical to hom, but a character variable with only 2 decimal places.
+ExactDate	The date on which the steam was measured.
+status	The status of the tree alive, dead, lost_stem, missing, or prior, etc.
+codes	The codes for the measurement as recorded in the field.
+RawStatus	status of the tree, alive, dead, new, etc
+dist_to_nail	Distance from the nail to the measuring point as efined in the HIPPNET manual.
+slp	standng, leaning, or prone (S,L, or P)
+substrate	Describes the ground surface where tree is planted
+pig_damage	column describing the pig damage (Typically 0,1,2, or 3 depending on the level of damage, 3 being worst)
+nostems	The number of living stems on the date of measurement.

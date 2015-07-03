@@ -250,6 +250,10 @@ class App:
 
         tk.Button( censusID_window, text='Apply', command=CMD_setCensusID ).grid(row=2)
 
+
+##########################
+# TREE STATUS RESOLUTION #
+##########################
     def resolveStatus( self):
         if not self.checkDatabaseLoaded():
             return
@@ -282,6 +286,9 @@ class App:
             
         tk.Button( self.statusWin, text='Apply', relief=tk.RAISED , font='BOLD',command=CMD_resolveStatus).grid( row=len(self.unique_status)+1, columnspan=2)
 
+###########################
+# TREE SPECIES RESOLUTION #
+###########################
     def resolveSpecies( self):
         if not self.checkDatabaseLoaded():
             return
@@ -289,14 +296,14 @@ class App:
         
         self.unique_sp = { sp:tk.Entry(self.spWin) for sp in set( self.hippnet_data['SPECIES'])  }
     
-        tk.Label( self.spWin, text='Correct species mistakes if necessary', **self.LabelOpts).grid( row=0,columnspan=2 ) 
-        tk.Label( self.spWin, text='Raw',).grid( row=1,column=0 ) 
-        tk.Label( self.spWin, text='Enter Corrections',).grid( row=1,column=1 ) 
+        tk.Label( self.spWin, text='Correct species mistakes if necessary', **self.LabelOpts).grid( row=0 ) 
+        #tk.Label( self.spWin, text='Raw',).grid( row=1,column=0 ) 
+        tk.Label( self.spWin, text='Enter Corrections',).grid( row=1 ) 
         
         for i,sp in enumerate( self.unique_sp ):
-            tk.Label( self.spWin, text=sp, relief=tk.RIDGE).grid( row=i+2, column=0)
+            #tk.Label( self.spWin, text=sp, relief=tk.RIDGE).grid( row=i+2, column=0)
             sp_entry = self.unique_sp[ sp ] 
-            sp_entry.grid( row=i+2 , column=1)
+            sp_entry.grid( row=i+2)
             sp_entry.insert(0, sp)
 
         def CMD_resolveSpecies():
@@ -308,10 +315,7 @@ class App:
             self.Text_ResolveSpecies = 'Resolved!'
             self.Layout()
             
-        tk.Button( self.spWin, text='Apply', relief=tk.RAISED , font='BOLD',command=CMD_resolveSpecies).grid( row=len(self.unique_sp)+2, columnspan=2)
-
-
-
+        tk.Button( self.spWin, text='Apply', relief=tk.RAISED , font='BOLD',command=CMD_resolveSpecies).grid( row=len(self.unique_sp)+2)
 
         return
 
