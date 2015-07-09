@@ -532,6 +532,9 @@ class App:
         self.moreMstemWin.title('Additional Multi-Stem Data')
 
         def CMD_moreInColumn():
+            self.moreMstemB1.destroy()
+            self.moreMstemB2.destroy()
+            
             self.moreInColumn_lab1 = tk.Label( self.moreMstemWin, text='select a column', **self.LabelOpts )
             self.moreInColumn_lab1.grid(row=0)
             self.moreInColumn_var1 = tk.StringVar()
@@ -540,9 +543,6 @@ class App:
             
             def CMD_grabFromColumn():
 
-                self.moreInColumn_lab1.destroy()
-                self.moreInColumn_opt1.destroy()
-                self.moreInColumn_b1.destroy()
                 more_mstem_col = self.moreInColumn_var1.get()
 
                 null_inds = self.hippnet_data[ more_mstem_col].isnull()
@@ -731,35 +731,34 @@ class App:
             outfile_xlsx = os.path.join( self.saveDir , '%s.xlsx'%saveName )
             outfile_pkl = os.path.join( self.saveDir , '%s.pkl'%saveName )
             
-            self.containerFrame.destroy()
-            self.saveWin.destroy()
-            
             
             if self.xlsx_var.get():
-                
                 try:
-                    xlsx_saveWin = tk.Toplevel()
-                    xlsx_saveWin.title('Saving...')
-                    prog = ttk.Progressbar( xlsx_saveWin,mode='indeterminate')
-                    prog.grid(row=0)
-                    prog.start()
                     self.hippnet_data.to_excel(outfile_xlsx , float_format='%.2f' , na_rep='NA' , index=False)
-                    prog.stop()
-                    xlsx_saveWin.destroy()
+                    #xlsx_saveWin = tk.Toplevel()
+                    #xlsx_saveWin.title('Saving...')
+                    #prog = ttk.Progressbar( xlsx_saveWin,mode='indeterminate')
+                    #prog.grid(row=0)
+                    #prog.start()
+                    #prog.stop()
+                    #xlsx_saveWin.destroy()
 
                 except ImportError:
                     errorWin = tk.Toplevel()
                     tk.Label(self.errorWin, text='XLSX not supported', background='red', foreground='white').grid(row=0)
                     tk.Button(errorWin, text='Ok', command=errorWin.destroy ).grid(row=1)
             if self.pkl_var.get():
-                pkl_saveWin = tk.Toplevel()
-                pkl_saveWin.title('Saving...')
-                prog = ttk.Progressbar( pkl_saveWin,mode='indeterminate')
-                prog.grid(row=0)
-                prog.start()
                 self.hippnet_data.to_pickle(outfile_pkl)
-                prog.stop()
-                pkl_saveWin.destroy()
+                #pkl_saveWin = tk.Toplevel()
+                #pkl_saveWin.title('Saving...')
+                #prog = ttk.Progressbar( pkl_saveWin,mode='indeterminate')
+                #prog.grid(row=0)
+                #prog.start()
+                #prog.stop()
+                #pkl_saveWin.destroy()
+            
+            self.containerFrame.destroy()
+            self.saveWin.destroy()
             
             tk.Label(self.mainFrame, text='Mahalo HIPPNET!').grid(row=0,columnspan=2)
             tk.Button( self.mainFrame, text='Aloha', command = self.master.destroy ).grid(row=1,column=0)
