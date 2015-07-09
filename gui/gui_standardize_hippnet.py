@@ -2,13 +2,14 @@ import os
 import sys
 import re
 import Tkinter as tk
+import ttk
 import tkFileDialog
 
 import numpy as np
 import pandas
 
 sys.path.append('/Users/mender/HIPPNET/hippnet')
-import helper 
+import helper
 
 class App:
     def __init__ (self, master):
@@ -72,6 +73,7 @@ class App:
         tk.Button( self.containerFrame, text='Select More Multiple Stem Data', command = self.moreMultiStem).grid(row=7,column=2)
 #       finished button
         tk.Button( self.containerFrame, text='Finished', command = self.Finish, background='blue',foreground='white').grid( row=8, column=1)
+        tk.Button( self.containerFrame, text='Restart', command =  self.restartLoop).grid(row=8,column=2)
     
     def TextLayout(self):
         tk.Label(self.containerFrame, text=self.Text_DataBase).grid( row=0,column=1)
@@ -189,25 +191,6 @@ class App:
 
         tk.Button( self.loadWin, text='Use Database', relief = tk.RAISED, command=CMD_selectDB  ).grid(row=1,columnspan=2)
         
-        
-        #self.database = tk.Entry(self.loadWin)
-        #self.database.grid(row=0,column=1)
-        #self.datatable = tk.Entry(self.loadWin)
-        #self.datatable.grid(row=1,column=1)
-        #self.database.insert(0,'Palamanui') 
-        #self.datatable.insert(0,'PN_resurvey_2010_v01') 
-        #def CMD_LoadDatabase():
-        #    mysql_database = self.database.get()
-        #    mysql_table    = self.datatable.get()
-        #    self.Text_DataBase = '%s; %s'%(mysql_database, mysql_table)
-#       #    read HIPPNET TSV file into pandas
-        #    self.datatype, self.hippnet_data = helper.mysql_to_dataframe( mysql_database, mysql_table   )
-        #    self.hippnet_col_names  = list(self.hippnet_data)
-        #    self.loadWin.destroy()
-        #    self.Layout()
-        
-        #tk.Button(self.loadWin, text="Load MYSQL Database", command= CMD_LoadDatabase).grid(row=2,columnspan=2)
-
 ##########################
 # PLOT CORNER DEFINITION #
 ##########################
@@ -286,24 +269,25 @@ class App:
         # initialize each match as "missing"
         self.matches = [ tk.StringVar() for c in self.ctfs_names ]
         for i,c in enumerate( self.ctfs_names) : # in self.matches:
-            if c == 'sp':
-                self.matches[i].set( 'SPECIES')
-            elif c == 'tag':
-                self.matches[i].set( 'TAG')
-            elif c == 'RawStatus':
-                self.matches[i].set( 'Status')
-            elif c == 'nostems':
-                self.matches[i].set( 'number_of_stems')
-            elif c == 'dbh':
-                self.matches[i].set( 'DBH_2010')
-            elif c == 'ExactDate':
-                self.matches[i].set( 'Date_')
-            elif c == 'x':
-                self.matches[i].set( 'x')
-            elif c == 'y':
-                self.matches[i].set( 'y')
-            else:
-                self.matches[i].set('*MISSING*')
+            self.matches[i].set('*MISSING*')
+            #if c == 'sp':
+            #    self.matches[i].set( 'SPECIES')
+            #elif c == 'tag':
+            #    self.matches[i].set( 'TAG')
+            #elif c == 'RawStatus':
+            #    self.matches[i].set( 'Status')
+            #elif c == 'nostems':
+            #    self.matches[i].set( 'number_of_stems')
+            #elif c == 'dbh':
+            #    self.matches[i].set( 'DBH_2010')
+            #elif c == 'ExactDate':
+            #    self.matches[i].set( 'Date_')
+            #elif c == 'x':
+            #    self.matches[i].set( 'x')
+            #elif c == 'y':
+            #    self.matches[i].set( 'y')
+            #else:
+            #    self.matches[i].set('*MISSING*')
 
         # fill in the table
         for i,n in enumerate( self.ctfs_names ) : 
@@ -551,10 +535,14 @@ class App:
             self.moreInColumn_lab1 = tk.Label( self.moreMstemWin, text='select a column', **self.LabelOpts )
             self.moreInColumn_lab1.grid(row=0)
             self.moreInColumn_var1 = tk.StringVar()
-            self.moreInColumn_opt1 = tk.OptionMenu( self.moreMstemWin , self.moreinColumn_var1, *list(self.hippnet_data) )
+            self.moreInColumn_opt1 = tk.OptionMenu( self.moreMstemWin , self.moreInColumn_var1, *list(self.hippnet_data) )
             self.moreInColumn_opt1.grid(row=1)
             
             def CMD_grabFromColumn():
+
+                self.moreInColumn_lab1.destroy()
+                self.moreInColumn_opt1.destroy()
+                self.moreInColumn_b1.destroy()
                 more_mstem_col = self.moreInColumn_var1.get()
 
                 null_inds = self.hippnet_data[ more_mstem_col].isnull()
@@ -599,29 +587,40 @@ class App:
             self.moreMstemB1.destroy()
             self.moreMstemB2.destroy()
             
-            self.lab1 = tk.Label(  self.moreMstemWin,text='MYSQL Database name'  )
-            self.lab1.grid(row=0)
-            self.lab2 = tk.Label(  self.moreMstemWin,text='Database Table name'  )
-            self.lab2.grid(row=1)
-            self.database = tk.Entry(self.moreMstemWin)
-            self.database.grid(row=0,column=1)
-            self.datatable = tk.Entry(self.moreMstemWin)
-            self.datatable.grid(row=1,column=1)
-            self.database.insert(0,'Palamanui') 
-            self.datatable.insert(0,'pn_toomanystems') 
-            def CMD_LoadMstemDatabase():
-                mysql_database = self.database.get()
-                mysql_table    = self.datatable.get()
-                self.mstem_datatype, self.mstem_data = helper.mysql_to_dataframe( mysql_database, mysql_table   )
-                self.lab1.destroy()
-                self.lab2.destroy()
-                self.database.destroy()
-                self.datatable.destroy()
-                self.more_inTable_b.destroy()
-                self.selectColFromList( self.moreMstemWin,  list(self.mstem_data), 
-                                self.closerInTable, self.more_multi_stem_names)
-            self.more_inTable_b = tk.Button(self.moreMstemWin, text="Load MYSQL Database", command= CMD_LoadMstemDatabase)
-            self.more_inTable_b.grid(row=2,columnspan=2)
+            self.db_lab = tk.Label(self.moreMstemWin, text='MYSQL Database name', **self.LabelOpts  )
+            self.db_lab.grid(row=0,column=0)
+            
+            self.database_var = tk.StringVar()
+            self.database_opt = tk.OptionMenu( self.moreMstemWin, self.database_var, *self.allDatabases )
+            self.database_opt.grid( row=0, column=1)
+        
+            def CMD_selectDB():
+                self.mysql_database = self.database_var.get()
+                self.tbl_lab = tk.Label(  self.moreMstemWin,text='Database Table name' , **self.LabelOpts )
+                self.tbl_lab.grid(row=2, column=0)
+                
+                all_tables = helper.getTables(self.mysql_database)
+                self.datatable_var = tk.StringVar()
+                self.datatable_opt = tk.OptionMenu( self.moreMstemWin, self.datatable_var, *all_tables )
+                self.datatable_opt.grid( row=2, column=1)
+                def CMD_LoadTable():
+                    mysql_table = self.datatable_var.get()
+#                   read HIPPNET TSV file into pandas
+                    self.mstem_datatype, self.mstem_data = helper.mysql_to_dataframe( self.mysql_database, mysql_table   )
+                    self.db_lab.destroy()
+                    self.database_opt.destroy()
+                    self.tbl_lab.destroy()
+                    self.datatable_opt.destroy()
+                    self.db_b.destroy()
+                    self.tbl_b.destroy()
+                    
+                    self.selectColFromList( self.moreMstemWin,  list(self.mstem_data), 
+                                            self.closerInTable, self.more_multi_stem_names)
+                
+                self.tbl_b = tk.Button( self.moreMstemWin, text='Load Table', relief = tk.RAISED, command=CMD_LoadTable)
+                self.tbl_b.grid(row=3,columnspan=2)
+            self.db_b = tk.Button( self.moreMstemWin, text='Use Database', relief = tk.RAISED, command=CMD_selectDB )
+            self.db_b.grid(row=1,columnspan=2)
             
 #       BUTTONS
         self.moreMstemB1 = tk.Button( self.moreMstemWin, 
@@ -719,7 +718,6 @@ class App:
         self.saveEntry = tk.Entry(self.saveWin)
         self.saveEntry.grid(row=0,column=2)
         
-        
         tk.Label( self.saveWin, text='Select Format' , **self.LabelOpts ).grid(row=1,column=0 )
         self.xlsx_var = tk.IntVar()
         self.pkl_var = tk.IntVar()
@@ -732,21 +730,40 @@ class App:
             saveName = self.saveEntry.get()
             outfile_xlsx = os.path.join( self.saveDir , '%s.xlsx'%saveName )
             outfile_pkl = os.path.join( self.saveDir , '%s.pkl'%saveName )
+            
+            self.containerFrame.destroy()
+            self.saveWin.destroy()
+            
+            
             if self.xlsx_var.get():
+                
                 try:
+                    xlsx_saveWin = tk.Toplevel()
+                    xlsx_saveWin.title('Saving...')
+                    prog = ttk.Progressbar( xlsx_saveWin,mode='indeterminate')
+                    prog.grid(row=0)
+                    prog.start()
                     self.hippnet_data.to_excel(outfile_xlsx , float_format='%.2f' , na_rep='NA' , index=False)
+                    prog.stop()
+                    xlsx_saveWin.destroy()
+
                 except ImportError:
                     errorWin = tk.Toplevel()
                     tk.Label(self.errorWin, text='XLSX not supported', background='red', foreground='white').grid(row=0)
                     tk.Button(errorWin, text='Ok', command=errorWin.destroy ).grid(row=1)
             if self.pkl_var.get():
+                pkl_saveWin = tk.Toplevel()
+                pkl_saveWin.title('Saving...')
+                prog = ttk.Progressbar( pkl_saveWin,mode='indeterminate')
+                prog.grid(row=0)
+                prog.start()
                 self.hippnet_data.to_pickle(outfile_pkl)
-            self.containerFrame.destroy()
-            self.mainFrame.pack_propagate(True)
-            tk.Label(self.mainFrame, text='Happy HIPPNET, Mahalo!').pack()
-            tk.Label(self.mainFrame, image='rainbow_awesome.jpg').pack()
-            tk.Button( self.mainFrame, text='Aloha', command = self.master.destroy ).pack()
-            #self.master.destroy()
+                prog.stop()
+                pkl_saveWin.destroy()
+            
+            tk.Label(self.mainFrame, text='Mahalo HIPPNET!').grid(row=0,columnspan=2)
+            tk.Button( self.mainFrame, text='Aloha', command = self.master.destroy ).grid(row=1,column=0)
+            tk.Button( self.mainFrame, text='Restart', command = self.restartLoop ).grid(row=1,column=1)
         
         self.saveDir = os.getcwd()
         tk.Label( self.saveWin, text='Current Output Directory:', **self.LabelOpts).grid( row=2, column=0)
@@ -763,6 +780,12 @@ class App:
         askdir_opt['parent'] = self.saveWin
         self.saveDir = tkFileDialog.askdirectory(**askdir_opt)
         self.dir_label.config(text=self.saveDir)
+
+    def restartLoop(self):
+        self.master.destroy()
+        root    = tk.Tk()
+        launch  = App( root  )
+        root.mainloop()
 
 root    = tk.Tk()
 launch  = App( root  )
