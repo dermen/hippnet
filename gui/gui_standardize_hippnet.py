@@ -2,6 +2,7 @@ import os
 import sys
 import re
 import Tkinter as tk
+import tkFileDialog
 
 import numpy as np
 import pandas
@@ -18,6 +19,8 @@ class App:
         #self.mainFrame.grid_propagate(False)
         self.mainFrame.master.title( 'Standardize HIPPNET data')
         self.mainFrame.pack() 
+
+        self.allDatabases = helper.getDatabaseList()
 
         self.LabelOpts = { 'font':'BOLD', 'background':'darkgreen', 'foreground':'white','relief':tk.RIDGE }
         
@@ -40,6 +43,8 @@ class App:
         self.ColumnsMatched = False
         self.CensusNumSet = False
         self.PlotCornerSet = False
+        self.StatusResolved = False
+        self.MultiStemSelected = False
 
         self.makeMainWidgetContainer()
         self.Layout()
@@ -123,6 +128,24 @@ class App:
             return False
         else:
             return True
+    
+    def checkStatusResolved(self):
+        if not self.StatusResolved:
+            warningWindow = tk.Toplevel()
+            tk.Label(warningWindow, text='Resolve status first!', background='red', foreground='white', font='BOLD' ).pack()
+            tk.Button( warningWindow, text='OK',command=warningWindow.destroy, relief=tk.RAISED,font='BOLD' ).pack()
+            return False
+        else:
+            return True
+    
+    def checkMultiStem(self):
+        if not self.MultiStemSelected:
+            warningWindow = tk.Toplevel()
+            tk.Label(warningWindow, text='Select multi stems from main data first!', background='red', foreground='white', font='BOLD' ).pack()
+            tk.Button( warningWindow, text='OK',command=warningWindow.destroy, relief=tk.RAISED,font='BOLD' ).pack()
+            return False
+        else:
+            return True
 
 
     def loadCTFS_standard(self):
@@ -138,28 +161,52 @@ class App:
 # LOAD DATABASE #
 #################
     def LoadDatabase(self):
-        self.db_select = tk.Toplevel()
-        self.db_select.title('Select a MYSQL database')
-        tk.Label(  self.db_select,text='MYSQL Database name'  ).grid(row=0)
-        tk.Label(  self.db_select,text='Database Table name'  ).grid(row=1)
-        self.database = tk.Entry(self.db_select)
-        self.database.grid(row=0,column=1)
-        self.datatable = tk.Entry(self.db_select)
-        self.datatable.grid(row=1,column=1)
-        self.database.insert(0,'Palamanui') 
-        self.datatable.insert(0,'PN_resurvey_2010_v01') 
-        def CMD_LoadDatabase():
-            mysql_database = self.database.get()
-            mysql_table    = self.datatable.get()
-            self.Text_DataBase = '%s; %s'%(mysql_database, mysql_table)
-#           read HIPPNET TSV file into pandas
-            self.datatype, self.hippnet_data = helper.mysql_to_dataframe( mysql_database, mysql_table   )
-            self.hippnet_col_names  = list(self.hippnet_data)
-            self.db_select.destroy()
-            self.Layout()
+        self.loadWin = tk.Toplevel()
+        self.loadWin.title('Select MYSQL database and table')
         
-        tk.Button(self.db_select, text="Load MYSQL Database", command= CMD_LoadDatabase).grid(row=2,columnspan=2)
-        self.DatabaseLoaded = True
+        tk.Label(self.loadWin, text='MYSQL Database name', **self.LabelOpts  ).grid(row=0,column=0)
+        self.database_var = tk.StringVar()
+        self.database_opt = tk.OptionMenu( self.loadWin, self.database_var, *self.allDatabases )
+        self.database_opt.grid( row=0, column=1)
+        
+        def CMD_selectDB():
+            self.mysql_database = self.database_var.get()
+            tk.Label(  self.loadWin,text='Database Table name' , **self.LabelOpts ).grid(row=2, column=0)
+            all_tables = helper.getTables(self.mysql_database)
+            self.datatable_var = tk.StringVar()
+            self.datatable_opt = tk.OptionMenu( self.loadWin, self.datatable_var, *all_tables )
+            self.datatable_opt.grid( row=2, column=1)
+            def CMD_LoadTable():
+                mysql_table = self.datatable_var.get()
+                self.Text_DataBase = '%s; %s'%(self.mysql_database, mysql_table)
+#               read HIPPNET TSV file into pandas
+                self.datatype, self.hippnet_data = helper.mysql_to_dataframe( self.mysql_database, mysql_table   )
+                self.hippnet_col_names = list(self.hippnet_data)
+                self.loadWin.destroy()
+                self.Layout() 
+                self.DatabaseLoaded = True
+            tk.Button( self.loadWin, text='Load Table', relief = tk.RAISED, command=CMD_LoadTable  ).grid(row=3,columnspan=2)
+
+        tk.Button( self.loadWin, text='Use Database', relief = tk.RAISED, command=CMD_selectDB  ).grid(row=1,columnspan=2)
+        
+        
+        #self.database = tk.Entry(self.loadWin)
+        #self.database.grid(row=0,column=1)
+        #self.datatable = tk.Entry(self.loadWin)
+        #self.datatable.grid(row=1,column=1)
+        #self.database.insert(0,'Palamanui') 
+        #self.datatable.insert(0,'PN_resurvey_2010_v01') 
+        #def CMD_LoadDatabase():
+        #    mysql_database = self.database.get()
+        #    mysql_table    = self.datatable.get()
+        #    self.Text_DataBase = '%s; %s'%(mysql_database, mysql_table)
+#       #    read HIPPNET TSV file into pandas
+        #    self.datatype, self.hippnet_data = helper.mysql_to_dataframe( mysql_database, mysql_table   )
+        #    self.hippnet_col_names  = list(self.hippnet_data)
+        #    self.loadWin.destroy()
+        #    self.Layout()
+        
+        #tk.Button(self.loadWin, text="Load MYSQL Database", command= CMD_LoadDatabase).grid(row=2,columnspan=2)
 
 ##########################
 # PLOT CORNER DEFINITION #
@@ -278,15 +325,17 @@ class App:
             for col in self.mandatory_cols: 
                 assert( matched_cols[col] != '*MISSING*' )
 
+            nn = self.hippnet_data.notnull()
+
 #           ~~~~ SPECIES ~~~
-            self.hippnet_data['sp'] = self.hippnet_data['sp'].map( lambda x:x.upper() )
+            self.hippnet_data.ix[ nn['sp'], 'sp'] = self.hippnet_data.ix[ nn['sp'],'sp'].map( lambda x:x.upper() )
 #           ~~~~ DATE ~~~
             datetime_stamp = pandas.DatetimeIndex( self.hippnet_data ['ExactDate'] )
             self.hippnet_data ['ExactDate'] = datetime_stamp
             self.hippnet_data ['date']      = datetime_stamp.to_julian_date()
 #           ~~~ GPS ~~~~
-            self.hippnet_data ['gx']       = np.round(self.hippnet_data['x'] - self.censusx0000, decimals=3)
-            self.hippnet_data ['gy']       = np.round(self.hippnet_data['y'] - self.censusy0000, decimals=3)
+            self.hippnet_data.ix[nn['x'], 'gx']       = np.round(self.hippnet_data.ix[nn['x'],'x'] - self.censusx0000, decimals=3)
+            self.hippnet_data.ix[nn['y'], 'gy']       = np.round(self.hippnet_data.ix[nn['y'],'y'] - self.censusy0000, decimals=3)
 #           ~~~ NULL columns which are required for CTFS formatting but dont apply to HIPPNET data 
             self.hippnet_data ['StemTag']  = np.nan
             self.hippnet_data ['stemID']   = np.nan
@@ -296,8 +345,9 @@ class App:
             self.hippnet_data ['CensusID'] = self.censusID 
 #           ~~~~ POINT OF MEASUREMENT related ~~~~~
             if matched_cols['pom'] != '*MISSING*':
-                self.hippnet_data[ 'hom'] = self.hippnet_data[ 'pom'].map(lambda x:'%.2f'%x)
+                self.hippnet_data.ix[nn['pom'], 'hom'] = self.hippnet_data.ix[nn['pom'], 'pom'].map(lambda x:'%.2f'%x)
             else:
+                self.hippnet_data[ 'pom'] = np.nan 
                 self.hippnet_data[ 'hom'] = np.nan 
             
             for col_name in self.non_mandatory_cols:
@@ -340,8 +390,8 @@ class App:
             return
         
         self.statusWin = tk.Toplevel()
-        
-        self.unique_status = {  stat:tk.StringVar() for stat in  set( self.hippnet_data['RawStatus'])  }
+        self.unique_status = {  stat:tk.StringVar() for stat 
+                in  set( self.hippnet_data.ix[self.hippnet_data.notnull()['RawStatus'],'RawStatus'])  }
     
         # set default values
         for stat in self.unique_status:
@@ -372,8 +422,10 @@ class App:
                 self.hippnet_data.replace( to_replace={'RawStatus': self.RawStatus_map} , inplace=True )
             
             # make the status column as well, which is an abbeviated DFstatus column
-            self.hippnet_data['status']   = self.hippnet_data['DFstatus'].map(lambda x:x.upper()[0])
+            self.hippnet_data.ix[self.hippnet_data.notnull()['RawStatus'], 'status'] = self.hippnet_data.ix[self.hippnet_data.notnull()['RawStatus'],'DFstatus'].map(lambda x:x.upper()[0])
             self.statusWin.destroy() 
+            
+            self.StatusResolved = True
             self.Text_ResolveStatus = 'Resolved!'
             self.Layout()
             
@@ -467,9 +519,9 @@ class App:
         self.selectColFromList( self.multiStemWin, list(self.hippnet_data), self.multiStemCloser, self.multi_stem_names )
         
     def multiStemCloser( self) :
+        self.MultiStemSelected = True
         self.Text_MultiStem = 'Selected!'
         self.Layout()
-        print self.multi_stem_names
 
         
         if self.multi_stem_names:
@@ -487,13 +539,60 @@ class App:
     def moreMultiStem( self):
         if not self.checkColumnsMatched():
             return
-        
+
+        if not self.checkMultiStem():
+            return
+
         self.moreMstemWin = tk.Toplevel(width=400,height=300)
         self.moreMstemWin.grid_propagate(False)
         self.moreMstemWin.title('Additional Multi-Stem Data')
 
         def CMD_moreInColumn():
-            self.moreMstemWin.destroy()
+            self.moreInColumn_lab1 = tk.Label( self.moreMstemWin, text='select a column', **self.LabelOpts )
+            self.moreInColumn_lab1.grid(row=0)
+            self.moreInColumn_var1 = tk.StringVar()
+            self.moreInColumn_opt1 = tk.OptionMenu( self.moreMstemWin , self.moreinColumn_var1, *list(self.hippnet_data) )
+            self.moreInColumn_opt1.grid(row=1)
+            
+            def CMD_grabFromColumn():
+                more_mstem_col = self.moreInColumn_var1.get()
+
+                null_inds = self.hippnet_data[ more_mstem_col].isnull()
+                self.hippnet_data.loc[ self.hippnet_data[more_mstem_col].isnull(), more_mstem_col]  = ''
+                mstem_from_notes = self.hippnet_data[more_mstem_col].map( lambda x: re.findall('[0-9]{1,2}\.[0-9]*' , x) ) 
+
+#               make all notes lower case for easier logical comparison
+                self.hippnet_data[more_mstem_col]= self.hippnet_data[more_mstem_col].map( lambda x:x.lower() )
+
+#               filter out mstam matches from notes, where mstem is actually a single dbh measurement of the main stem
+                not_mstem_condition = [ 'stem' not in note 
+                                        and 'previous' in note 
+                                        and len(matches)==1 
+                                        and 'maybe' in note 
+                                        or 'past' in note 
+                                        for note,matches in zip(self.hippnet_data[more_mstem_col], mstem_from_notes) ]
+                mstem_from_notes[ not_mstem_condition ] = None
+
+#               max nomstem from main database
+                max_nomstem = len( filter( lambda x:re.match('dbh_',x), list(self.hippnet_data) )  )
+
+#               create a mapping from mstem_from_notes series to a new dataframe, where the columns are the mstem dbh measurements
+                mstems_map = [ {'dbh_%d'%(i+max_nomstem+1):float(val) 
+                                for i,val in enumerate(vals) }  
+                                if vals 
+                                else {} 
+                                for vals in mstem_from_notes.values ]
+                more_mstems_df = pandas.DataFrame( mstems_map, index=mstem_from_notes.index )
+
+                self.hippnet_data = pandas.concat( (self.hippnet_data, more_mstems_df) ,axis=1 )
+                
+                self.Text_MoreMultiStem = 'Selected'
+                self.Layout()
+                self.moreMstemWin.destroy()
+            
+            self.moreInColumn_b1 = tk.Button( self.moreMstemWin, text='Select', command=CMD_grabFromColumn )
+            self.moreInColumn_b1.grid(row=2)
+
 
         def CMD_moreInTable():
             self.more_multi_stem_names = []
@@ -545,10 +644,6 @@ class App:
             self.merger_closer_b = tk.Button( self.moreMstemWin, text='Select', command = self.more_mstem_table_last )
             self.merger_closer_b.grid( row=2)
              
-        #def CMD_merger():
-        #    self.mstem_merge_lab.destroy()
-        #    self.mstem_merge_b.destroy()
-            
         def call_merger_closer():
             self.merger_lab.destroy()
             self.merger_opt.destroy()
@@ -566,31 +661,108 @@ class App:
  
         
     def more_mstem_table_last(self):
-        print self.more_multi_stem_names
         ctfs_merger_col = self.ctfs_mstem_merger.get()
         self.mstem_data.rename( columns = {self.mstem_merge_column: ctfs_merger_col }, inplace=True)
         self.Text_MoreMultiStem = 'Selected'
         self.Layout()
         if self.more_multi_stem_names:
             self.mstem_data = self.mstem_data[ [ctfs_merger_col]+self.more_multi_stem_names ] 
-#               max nomstem from main database
+#           max nomstem from main database
             max_nomstem = len( filter( lambda x:re.match('dbh_',x), list(self.hippnet_data) )  )
-#               rename the columns to a standard name
+#           rename the columns to a standard name
             self.mstem_data.rename( columns={ name:'dbh_%d'%(i+max_nomstem+1) 
                                         for i,name in enumerate(self.more_multi_stem_names) }, 
                                         inplace=True )
             self.hippnet_data = pandas.merge( self.hippnet_data, self.mstem_data, on=ctfs_merger_col, how='outer')
-            print list( self.hippnet_data )
             self.moreMstemWin.destroy()
         else:
             self.multiStemWin.destroy()
        
-##########
-# FINISH #
-##########
-    def Finish(self)
-        self.master.destroy()
-    
+###################
+# SAVE AND FINISH #
+###################
+    def Finish(self):
+        if not self.checkColumnsMatched():
+            return
+
+        if not self.checkStatusResolved():
+            return 
+
+        # sort the mstems columns
+        mstem_cols = [ col_name for col_name in list(self.hippnet_data) if col_name.startswith('dbh_') ]
+        self.hippnet_data[ mstem_cols] = np.sort( self.hippnet_data[ mstem_cols ].values.astype(float) ,axis=1)
+        ######################
+        # SPECIFY SOME TYPES #
+        ######################
+        newtypes = { 'sp':str,
+                    'tag':int,
+                    'notes':str,
+                    'slp':str,
+                    'dbh':float,
+                    'gx': float,
+                    'gy': float,
+                    'hom': float,
+                    'pom':str}
+        for col,t in newtypes.iteritems():
+            to_convert = self.hippnet_data[col].notnull()
+            self.hippnet_data.ix[ to_convert, col] = self.hippnet_data.ix[to_convert,col ].astype(t) 
+
+        output_cols  = [ col for col in self.ctfs_names if col in list(self.hippnet_data) ] 
+        output_cols += mstem_cols 
+        output_cols += ['DFstatus', 'status', 'gx', 'gy', 'StemTag', 'stemID', 'agb', 'CensusID', 'codes' ]
+       
+        self.hippnet_data = self.hippnet_data.loc[:, output_cols]
+
+        self.saveWin = tk.Toplevel()
+        self.saveWin.title('Save')
+        tk.Label(self.saveWin,text='Enter an output filename:', **self.LabelOpts).grid(row=0,column=0)
+        self.saveEntry = tk.Entry(self.saveWin)
+        self.saveEntry.grid(row=0,column=2)
+        
+        
+        tk.Label( self.saveWin, text='Select Format' , **self.LabelOpts ).grid(row=1,column=0 )
+        self.xlsx_var = tk.IntVar()
+        self.pkl_var = tk.IntVar()
+        self.xlsx_cb = tk.Checkbutton(self.saveWin, text='xlsx', variable = self.xlsx_var )
+        self.xlsx_cb.grid(row=1,column=1)
+        self.pkl_cb = tk.Checkbutton(self.saveWin, text='pkl', variable = self.pkl_var )
+        self.pkl_cb.grid(row=1,column=2)
+
+        def CMD_save():
+            saveName = self.saveEntry.get()
+            outfile_xlsx = os.path.join( self.saveDir , '%s.xlsx'%saveName )
+            outfile_pkl = os.path.join( self.saveDir , '%s.pkl'%saveName )
+            if self.xlsx_var.get():
+                try:
+                    self.hippnet_data.to_excel(outfile_xlsx , float_format='%.2f' , na_rep='NA' , index=False)
+                except ImportError:
+                    errorWin = tk.Toplevel()
+                    tk.Label(self.errorWin, text='XLSX not supported', background='red', foreground='white').grid(row=0)
+                    tk.Button(errorWin, text='Ok', command=errorWin.destroy ).grid(row=1)
+            if self.pkl_var.get():
+                self.hippnet_data.to_pickle(outfile_pkl)
+            self.containerFrame.destroy()
+            self.mainFrame.pack_propagate(True)
+            tk.Label(self.mainFrame, text='Happy HIPPNET, Mahalo!').pack()
+            tk.Label(self.mainFrame, image='rainbow_awesome.jpg').pack()
+            tk.Button( self.mainFrame, text='Aloha', command = self.master.destroy ).pack()
+            #self.master.destroy()
+        
+        self.saveDir = os.getcwd()
+        tk.Label( self.saveWin, text='Current Output Directory:', **self.LabelOpts).grid( row=2, column=0)
+        
+        self.dir_label = tk.Label( self.saveWin , text=self.saveDir)
+        self.dir_label.grid( row=2, column=2 )
+        
+        tk.Button( self.saveWin, text='Change Directory', command = self.changeSaveDir ).grid(row=3,columnspan=3)
+        tk.Button( self.saveWin, text='Save', command=CMD_save ).grid(row=4, columnspan=3)
+
+    def changeSaveDir(self):
+        askdir_opt = {}
+        askdir_opt['mustexist'] = False
+        askdir_opt['parent'] = self.saveWin
+        self.saveDir = tkFileDialog.askdirectory(**askdir_opt)
+        self.dir_label.config(text=self.saveDir)
 
 root    = tk.Tk()
 launch  = App( root  )
