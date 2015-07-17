@@ -62,9 +62,6 @@ class EditorApp:
         
         self.make_editor_frame()
 
-
-
-
 ##############
 # SCROLLBARS #
 ##############
@@ -157,8 +154,6 @@ class EditorApp:
     
     def sm_lb_callback(self, event):
         items = self.sm_lb.curselection()
-        try: items = map(int, items)
-        except ValueError: pass
         if items[0] == 0:
             self.lb.selection_clear(0,tk.END) 
             self.lb.config( selectmode=tk.BROWSE)
@@ -178,31 +173,23 @@ class EditorApp:
     def editDF_single(self):
         """ button action for updating the dataframe"""
         self.col = self.opt_var.get()
-        
         self.init_hist_tracker()
         self.track()
         self.setval() 
-        self.update_hist_tracker() 
         self.rewrite()
+        self.update_hist_tracker() 
        
     def editDF_multi( self ):
         self.col = self.opt_var.get()
+        self.init_hist_tracker()
         
         items = self.lb.curselection()
-        try: items = map( int, items)
-        except ValueError: pass
-        
-        self.init_hist_tracker()
-
         for i in items:
             self.idx = i
             self.row = self.rowmap[i]
-            
             self.track()
-
             self.setval()
             self.rewrite()
-        
         self.update_hist_tracker() 
     
     def setval(self):
@@ -223,16 +210,16 @@ class EditorApp:
 ####################
 # HISTORY TRACKING #
 ####################
-    def track(self):
-        self.prev_vals['vals'][self.idx] = str( self.df.ix[ self.row, self.col ] ) 
-
     def init_hist_tracker(self):
         self.prev_vals = {}
         self.prev_vals['col'] = self.col
         self.prev_vals['vals'] = {} 
+    
+    def track(self):
+        self.prev_vals['vals'][self.idx] = str( self.df.ix[ self.row, self.col ] ) 
 
     def update_hist_tracker( self):
-        self.update_history.append( self.pre_vals)
+        self.update_history.append( self.prev_vals)
 
     def make_undo_button( self):
         self.undo_b = tk.Button( self.subframe, text='Undo', command = self.undo)
@@ -272,7 +259,7 @@ def main():
     df        = pandas.read_table(tsv_fname, sep='\t', na_values='NA')
 
 #   select some rows to edit
-    dat_rows   = range( 1000 )
+    dat_rows   = range( 4000 )
 
 #   start
     root      = tk.Tk()
