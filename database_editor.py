@@ -258,12 +258,12 @@ def main():
     tsv_fname = '/Users/mender/CTFS/treelover/tsv2ctfs/data/Laupahoehoe_annual_master.txt'
     df        = pandas.read_table(tsv_fname, sep='\t', na_values='NA')
 
-#   select some rows to edit
-    dat_rows   = range( 4000 )
+#   select the first 100 rows to edit (or whatever)
+    dat_rows = range( 100 )
 
 #   start
     root      = tk.Tk()
-    editor     = EditorApp(  root, df, dat_rows )
+    editor     = EditorApp(  root, df, dat_rows)
     root.mainloop() # until closes window
 
 #   re-assign dataframe    
