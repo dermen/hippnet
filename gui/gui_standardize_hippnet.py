@@ -1,7 +1,10 @@
 import os
 import sys
 import re
-import Tkinter as tk
+try:
+    import Tkinter as tk
+except ImportError:
+    import tkinter as tk
 import ttk
 import tkFileDialog
 
@@ -10,145 +13,116 @@ import pandas
 
 sys.path.append('/Users/mender/HIPPNET/hippnet')
 import helper
+import resolver
+ResolveWin = resolver.ResolveWin
+
 
 class App:
     def __init__ (self, master):
         self.master = master
-        
-        self.mainFrame = tk.Frame(self.master, width=700, height=400)
-        self.mainFrame.pack_propagate(False)
-        #self.mainFrame.grid_propagate(False)
-        self.mainFrame.master.title( 'Standardize HIPPNET data')
-        self.mainFrame.pack() 
 
+#       make main frame
+        self.main_frame = tk.Frame(self.master, width=700, height=400)
+        self.main_frame.pack_propagate(False)
+        self.main_frame.master.title( 'Standardize HIPPNET data')
+        self.main_frame.pack() 
+
+#       some standard options for label widgets
+        self.LabelOpts = {'font':'BOLD', 'background':'darkgreen', 
+                            'foreground':'white','relief':tk.RIDGE }
+
+#       get the databases from mysql  
         self.allDatabases = helper.getDatabaseList()
 
-        self.LabelOpts = { 'font':'BOLD', 'background':'darkgreen', 'foreground':'white','relief':tk.RIDGE }
+        self._init_plotCorner_censusID_multiStem()
+        self._init_proc_check_vars()
         
-        # TEXT VARIABLES
-        self.Text_DataBase =  'Not selected.'
-        self.Text_PlotCorner =  'Not defined.'
-        self.Text_ColSelect =  'Not matched.'
-        self.Text_CensusID =  'Not assigned.'
-        self.Text_ResolveStatus = 'Unresolved'
+        self._make_main_frame_lab_text()
+        self._make_widget_container()
+        self._layout()
+    
+    def _make_main_frame_lab_text(self):
+        self.Text_DataBase       = 'Not selected.'
+        self.Text_PlotCorner     = 'Not defined.'
+        self.Text_ColSelect      = 'Not matched.'
+        self.Text_CensusID       = 'Not assigned.'
+        self.Text_ResolveStatus  = 'Unresolved'
         self.Text_ResolveSpecies = 'Unresolved'
-        self.Text_MultiStem    = 'Unresolved'
-        self.Text_MoreMultiStem = 'Unresolved'
+        self.Text_MultiStem      = 'Unresolved'
+        self.Text_MoreMultiStem  = 'Unresolved'
 
-        self.censusx0000 = 0
-        self.censusy0000 = 0
-        self.censusID    = 0
+    def _init_plotCorner_censusID_multiStem(self):
+        #self.censusx0000 = 0
+        #self.censusy0000 = 0
+        self.censusx0000 = 260420.001
+        self.censusy0000 = 2205378.002
+
+        self.censusID    = 2 #0
         self.multi_stem_names = []
-        
-        self.DatabaseLoaded = False
-        self.ColumnsMatched = False
-        self.CensusNumSet = False
-        self.PlotCornerSet = False
-        self.StatusResolved = False
-        self.MultiStemSelected = False
-
-        self.makeMainWidgetContainer()
-        self.Layout()
     
-    def makeMainWidgetContainer(self):
-        self.containerFrame = tk.Frame( self.mainFrame)
-        self.containerFrame.pack_propagate(False)
-        self.containerFrame.pack()
+    def _init_proc_check_vars(self):
+        self.DatabaseLoaded    = {'done':False, 'mssg':'Load a MYSWL database first!'}
+        self.ColumnsMatched    = {'done':False, 'mssg':'Match columns First!'}
+        self.CensusNumSet      = {'done':False, 'mssg':'Set Census ID first!'}
+        self.PlotCornerSet     = {'done':False, 'mssg':'Set plot corner first!'}
+        self.StatusResolved    = {'done':False, 'mssg':'Resolve status columns first!'}
+        self.MultiStemSelected = {'done':False, 'mssg':'Select multiple stem data first!'}
+
+    def _make_widget_container(self):
+        self.container_frame = tk.Frame( self.main_frame)
+        self.container_frame.pack_propagate(False)
+        self.container_frame.pack()
     
-    def Layout(self):
-        self.containerFrame.destroy()
-        self.makeMainWidgetContainer()
-        self.ButtonLayout()
-        self.LabelLayout()
-        self.TextLayout()
+    def _layout(self):
+        self.container_frame.destroy()
+        self._make_widget_container()
+        self._button_layout()
+        self._label_layout()
+        self._text_layout()
 
-    def ButtonLayout(self):
-        tk.Button( self.containerFrame, text='Load a HIPPNET MYSQL Database', command = self.LoadDatabase ).grid(row=0, column=2)
-        tk.Button(self.containerFrame, text='Define Plot Corner', command=self.plotCorner ).grid(row=1, column=2)
-        tk.Button( self.containerFrame, text='Column Selector', command=self.colSelect ).grid(row=2, column=2)
-        tk.Button( self.containerFrame, text='Set a CensusID', command = self.setCensusID).grid(row=3,column=2)
-        tk.Button( self.containerFrame, text='Resolve Status Column', command = self.resolveStatus).grid(row=4,column=2)
-        tk.Button( self.containerFrame, text='Resolve Species Column', command = self.resolveSpecies).grid(row=5,column=2)
-        tk.Button( self.containerFrame, text='Select Multiple Stems Columns', command = self.multiStem).grid(row=6,column=2)
-        tk.Button( self.containerFrame, text='Select More Multiple Stem Data', command = self.moreMultiStem).grid(row=7,column=2)
-#       finished button
-        tk.Button( self.containerFrame, text='Finished', command = self.Finish, background='blue',foreground='white').grid( row=8, column=1)
-        tk.Button( self.containerFrame, text='Restart', command =  self.restartLoop).grid(row=8,column=2)
+    def _button_layout(self):
+        tk.Button(self.container_frame, text='Load a HIPPNET MYSQL Database', command = self.LoadDatabase ).grid(row=0, column=2)
+        tk.Button(self.container_frame, text='Define Plot Corner',                command=self.plotCorner ).grid(row=1, column=2)
+        tk.Button(self.container_frame, text='Column Selector',                    command=self.colSelect ).grid(row=2, column=2)
+        tk.Button(self.container_frame, text='Set a CensusID',                  command = self.setCensusID).grid(row=3, column=2)
+        tk.Button(self.container_frame, text='Resolve Status Column',         command = self.resolveStatus).grid(row=4, column=2)
+        tk.Button(self.container_frame, text='Resolve Species Column',       command = self.resolveSpecies).grid(row=5, column=2)
+        tk.Button(self.container_frame, text='Select Multiple Stems Columns',     command = self.multiStem).grid(row=6, column=2)
+        tk.Button(self.container_frame, text='Select More Multiple Stem Data',command = self.moreMultiStem).grid(row=7, column=2)
+        tk.Button(self.container_frame, text='Finished',                             command = self.Finish).grid(row=8, column=1)
+        tk.Button( self.container_frame, text='Restart',                       command =  self.restartLoop).grid(row=8, column=2)
     
-    def TextLayout(self):
-        tk.Label(self.containerFrame, text=self.Text_DataBase).grid( row=0,column=1)
-        tk.Label(self.containerFrame, text=self.Text_PlotCorner).grid( row=1,column=1)
-        tk.Label(self.containerFrame, text=self.Text_ColSelect).grid( row=2,column=1)
-        tk.Label(self.containerFrame, text=self.Text_CensusID).grid( row=3,column=1)
-        tk.Label(self.containerFrame, text=self.Text_ResolveStatus).grid( row=4,column=1)
-        tk.Label(self.containerFrame, text=self.Text_ResolveSpecies).grid( row=5,column=1)
-        tk.Label(self.containerFrame, text=self.Text_MultiStem).grid( row=6,column=1)
-        tk.Label(self.containerFrame, text=self.Text_MoreMultiStem).grid( row=7,column=1)
+    def _text_layout(self):
+        tk.Label(self.container_frame,       text=self.Text_DataBase).grid(row=0, column=1)
+        tk.Label(self.container_frame,     text=self.Text_PlotCorner).grid(row=1, column=1)
+        tk.Label(self.container_frame,      text=self.Text_ColSelect).grid(row=2, column=1)
+        tk.Label(self.container_frame,       text=self.Text_CensusID).grid(row=3, column=1)
+        tk.Label(self.container_frame,  text=self.Text_ResolveStatus).grid(row=4, column=1)
+        tk.Label(self.container_frame, text=self.Text_ResolveSpecies).grid(row=5, column=1)
+        tk.Label(self.container_frame,      text=self.Text_MultiStem).grid(row=6, column=1)
+        tk.Label(self.container_frame, text=self.Text_MoreMultiStem).grid( row=7, column=1)
 
-    def LabelLayout(self):
-        tk.Label(self.containerFrame, text='Database Info:',   **self.LabelOpts).grid(row=0,column=0)
-        tk.Label(self.containerFrame, text='Plot Corner:',     **self.LabelOpts).grid(row=1,column=0)
-        tk.Label(self.containerFrame, text='Columns Matched:', **self.LabelOpts).grid(row=2,column=0)
-        tk.Label(self.containerFrame, text='CensusID:',        **self.LabelOpts).grid(row=3,column=0)
-        tk.Label(self.containerFrame, text='Status Column:',   **self.LabelOpts).grid(row=4,column=0)
-        tk.Label(self.containerFrame, text='Species Column:',  **self.LabelOpts).grid(row=5,column=0)
-        tk.Label(self.containerFrame, text='Multiple Stems:',  **self.LabelOpts).grid(row=6,column=0)
-        tk.Label(self.containerFrame, text='More Multiple Stems:',  **self.LabelOpts).grid(row=7,column=0)
+    def _label_layout(self):
+        tk.Label(self.container_frame, text='Database Info:',   **self.LabelOpts).grid(row=0, column=0)
+        tk.Label(self.container_frame, text='Plot Corner:',     **self.LabelOpts).grid(row=1, column=0)
+        tk.Label(self.container_frame, text='Columns Matched:', **self.LabelOpts).grid(row=2, column=0)
+        tk.Label(self.container_frame, text='CensusID:',        **self.LabelOpts).grid(row=3, column=0)
+        tk.Label(self.container_frame, text='Status Column:',   **self.LabelOpts).grid(row=4, column=0)
+        tk.Label(self.container_frame, text='Species Column:',  **self.LabelOpts).grid(row=5, column=0)
+        tk.Label(self.container_frame, text='Multiple Stems:',  **self.LabelOpts).grid(row=6, column=0)
+        tk.Label(self.container_frame, text='More Multiple Stems:',  **self.LabelOpts).grid(row=7,column=0)
 
-    def checkDatabaseLoaded(self):
-        if not self.DatabaseLoaded:
+
+    def _check_proc_complete(self, proc):
+        proc_done = proc['done']
+        proc_mssg = proc['mssg']
+        if not proc_done:
             warningWindow = tk.Toplevel()
-            tk.Label(warningWindow, text='Load a MYSQL database first!', background='red', foreground='white', font='BOLD' ).pack()
+            tk.Label(warningWindow, text=proc_mssg, background='red', foreground='white', font='BOLD' ).pack()
             tk.Button( warningWindow, text='OK',command=warningWindow.destroy, relief=tk.RAISED,font='BOLD' ).pack()
             return False
         else:
-            return True
-
-    def checkColumnsMatched(self):
-        if not self.ColumnsMatched:
-            warningWindow = tk.Toplevel()
-            tk.Label(warningWindow, text='Match columns first!', background='red', foreground='white', font='BOLD' ).pack()
-            tk.Button( warningWindow, text='OK',command=warningWindow.destroy, relief=tk.RAISED,font='BOLD' ).pack()
-            return False
-        else:
-            return True
-    
-    def checkCensusNum(self):
-        if not self.CensusNumSet:
-            warningWindow = tk.Toplevel()
-            tk.Label(warningWindow, text='Specify a unique census number first!', background='red', foreground='white', font='BOLD' ).pack()
-            tk.Button( warningWindow, text='OK',command=warningWindow.destroy, relief=tk.RAISED,font='BOLD' ).pack()
-            return False
-        else:
-            return True
-    
-    def checkPlotCorner(self):
-        if not self.PlotCornerSet:
-            warningWindow = tk.Toplevel()
-            tk.Label(warningWindow, text='Select plot corner first!', background='red', foreground='white', font='BOLD' ).pack()
-            tk.Button( warningWindow, text='OK',command=warningWindow.destroy, relief=tk.RAISED,font='BOLD' ).pack()
-            return False
-        else:
-            return True
-    
-    def checkStatusResolved(self):
-        if not self.StatusResolved:
-            warningWindow = tk.Toplevel()
-            tk.Label(warningWindow, text='Resolve status first!', background='red', foreground='white', font='BOLD' ).pack()
-            tk.Button( warningWindow, text='OK',command=warningWindow.destroy, relief=tk.RAISED,font='BOLD' ).pack()
-            return False
-        else:
-            return True
-    
-    def checkMultiStem(self):
-        if not self.MultiStemSelected:
-            warningWindow = tk.Toplevel()
-            tk.Label(warningWindow, text='Select multi stems from main data first!', background='red', foreground='white', font='BOLD' ).pack()
-            tk.Button( warningWindow, text='OK',command=warningWindow.destroy, relief=tk.RAISED,font='BOLD' ).pack()
-            return False
-        else:
-            return True
-
+            return True 
 
     def loadCTFS_standard(self):
         data = np.loadtxt( 
@@ -169,6 +143,7 @@ class App:
         tk.Label(self.loadWin, text='MYSQL Database name', **self.LabelOpts  ).grid(row=0,column=0)
         self.database_var = tk.StringVar()
         self.database_opt = tk.OptionMenu( self.loadWin, self.database_var, *self.allDatabases )
+        self.database_var.set('Laupahoehoe' )##########
         self.database_opt.grid( row=0, column=1)
         
         def CMD_selectDB():
@@ -178,6 +153,7 @@ class App:
             self.datatable_var = tk.StringVar()
             self.datatable_opt = tk.OptionMenu( self.loadWin, self.datatable_var, *all_tables )
             self.datatable_opt.grid( row=2, column=1)
+            self.datatable_var.set( 'LAU_resurvey_2010_v02')#############
             def CMD_LoadTable():
                 mysql_table = self.datatable_var.get()
                 self.Text_DataBase = '%s; %s'%(self.mysql_database, mysql_table)
@@ -185,8 +161,8 @@ class App:
                 self.datatype, self.hippnet_data = helper.mysql_to_dataframe( self.mysql_database, mysql_table   )
                 self.hippnet_col_names = list(self.hippnet_data)
                 self.loadWin.destroy()
-                self.Layout() 
-                self.DatabaseLoaded = True
+                self._layout() 
+                self.DatabaseLoaded['done'] = True
             tk.Button( self.loadWin, text='Load Table', relief = tk.RAISED, command=CMD_LoadTable  ).grid(row=3,columnspan=2)
 
         tk.Button( self.loadWin, text='Use Database', relief = tk.RAISED, command=CMD_selectDB  ).grid(row=1,columnspan=2)
@@ -212,9 +188,9 @@ class App:
                 self.censusx0000 = self.x_entry.getdouble()
                 self.censusy0000 = self.y_entry.getdouble()
                 self.cornerFrame.destroy()
-                self.PlotCornerSet = True
+                self.PlotCornerSet['done'] = True
                 self.Text_PlotCorner= "x= %.2f; y=%.2f"%(self.censusx0000, self.censusy0000)
-                self.Layout()
+                self._layout()
 
             tk.Button(self.cornerFrame, text='Apply', command=getCornersManual ).grid(row=3,columnspan=2)
 
@@ -233,8 +209,8 @@ class App:
                     self.censusx0000 = 260420.001
                     self.censusy0000 = 2205378.002
                 self.Text_PlotCorner= "x= %.2f; y=%.2f"%(self.censusx0000, self.censusy0000)
-                self.PlotCornerSet = True
-                self.Layout()
+                self.PlotCornerSet['done'] = True
+                self._layout()
                 self.cornerFrame.destroy()
 
             tk.Button(self.cornerFrame, text='Apply', command=getCornersList).grid(row=1,columnspan=2)
@@ -248,12 +224,13 @@ class App:
 # COLUMN SELECTION #
 ####################
     def colSelect(self):
-        if not self.checkDatabaseLoaded():
-            return
-        if not self.checkCensusNum():
-            return
-        if not self.checkPlotCorner():
-            return
+        #if not self._check_proc_complete( self.DatabaseLoaded ):
+        #    return
+        #if not self._check_proc_complete( self.CensusNumSet ):
+        #    return
+        #if not self._check_proc_complete( self.PlotCornerSet):
+        #    return
+        
         self.loadCTFS_standard()
 
 #       SOME COLUMNS ARE MANDATORY            
@@ -269,27 +246,25 @@ class App:
         # initialize each match as "missing"
         self.matches = [ tk.StringVar() for c in self.ctfs_names ]
         for i,c in enumerate( self.ctfs_names) : # in self.matches:
-            self.matches[i].set('*MISSING*')
-            #if c == 'sp':
-            #    self.matches[i].set( 'SPECIES')
-            #elif c == 'tag':
-            #    self.matches[i].set( 'TAG')
-            #elif c == 'RawStatus':
-            #    self.matches[i].set( 'Status')
-            #elif c == 'nostems':
-            #    self.matches[i].set( 'number_of_stems')
-            #elif c == 'dbh':
-            #    self.matches[i].set( 'DBH_2010')
-            #elif c == 'ExactDate':
-            #    self.matches[i].set( 'Date_')
-            #elif c == 'x':
-            #    self.matches[i].set( 'x')
-            #elif c == 'y':
-            #    self.matches[i].set( 'y')
-            #else:
-            #    self.matches[i].set('*MISSING*')
-
-        # fill in the table
+            if c== 'tag':
+                self.matches[i].set( 'New_tag')
+            elif c== 'sp':
+                self.matches[i].set( 'Species')
+            elif c== 'x':
+                self.matches[i].set( 'X')
+            elif c== 'y':
+                self.matches[i].set( 'Y')
+            elif c== 'dbh':
+                self.matches[i].set( 'DBH_2010')
+            elif c== 'ExactDate':
+                self.matches[i].set( 'Date_')
+            elif c== 'RawStatus':
+                self.matches[i].set( 'Status')
+            elif c== 'nostems':
+                self.matches[i].set( 'NUM_OF_Stems')
+            else:
+                self.matches[i].set('*MISSING*')
+        
         for i,n in enumerate( self.ctfs_names ) : 
             d = self.col_descr[i]
             if n in self.mandatory_cols:
@@ -308,7 +283,7 @@ class App:
            
             for col in self.mandatory_cols: 
                 assert( matched_cols[col] != '*MISSING*' )
-
+                    
             nn = self.hippnet_data.notnull()
 
 #           ~~~~ SPECIES ~~~
@@ -340,9 +315,9 @@ class App:
 
             self.colWin.destroy()
 
-            self.ColumnsMatched =True
+            self.ColumnsMatched['done'] =True
             self.Text_ColSelect = 'Matched!'
-            self.Layout()        
+            self._layout()        
 
         tk.Button(self.colWin, text='Done', foreground='white', background='darkgreen',
                 font='BOLD', command=CMD_colSelect, relief=tk.RAISED).grid(row=len(self.ctfs_names)+1, column = 1 )
@@ -359,9 +334,9 @@ class App:
         self.censusID_entry.grid(row=1)
         def CMD_setCensusID():
             self.censusID = int( self.censusID_entry.get() )
-            self.CensusNumSet = True
+            self.CensusNumSet['done'] = True
             self.Text_CensusID = '%d'%self.censusID
-            self.Layout()
+            self._layout()
             censusID_window.destroy()
 
         tk.Button( censusID_window, text='Apply', command=CMD_setCensusID ).grid(row=2)
@@ -370,7 +345,7 @@ class App:
 # TREE STATUS RESOLUTION #
 ##########################
     def resolveStatus( self):
-        if not self.checkColumnsMatched():
+        if not self._check_proc_complete( self.ColumnsMatched):
             return
         
         self.statusWin = tk.Toplevel()
@@ -406,12 +381,12 @@ class App:
                 self.hippnet_data.replace( to_replace={'RawStatus': self.RawStatus_map} , inplace=True )
             
             # make the status column as well, which is an abbeviated DFstatus column
-            self.hippnet_data.ix[self.hippnet_data.notnull()['RawStatus'], 'status'] = self.hippnet_data.ix[self.hippnet_data.notnull()['RawStatus'],'DFstatus'].map(lambda x:x.upper()[0])
+            self.hippnet_data.ix[self.hippnet_data.notnull()['RawStatus'], 'status'] =  self.hippnet_data.ix[self.hippnet_data.notnull()['RawStatus'], 'DFstatus'].map(lambda x:x.upper()[0])
             self.statusWin.destroy() 
             
-            self.StatusResolved = True
+            self.StatusResolved['done'] = True
             self.Text_ResolveStatus = 'Resolved!'
-            self.Layout()
+            self._layout()
             
         tk.Button( self.statusWin, text='Apply', relief=tk.RAISED , font='BOLD',
                     command=CMD_resolveStatus).grid( row=len(self.unique_status)+2, columnspan=2)
@@ -419,34 +394,46 @@ class App:
 ###########################
 # TREE SPECIES RESOLUTION #
 ###########################
-    def resolveSpecies( self):
-        if not self.checkColumnsMatched():
+    def resolveSpecies(self):
+        if not self._check_proc_complete( self.ColumnsMatched):
             return
-        self.spWin = tk.Toplevel()
-        
-        self.unique_sp = { sp:tk.Entry(self.spWin) for sp in set( self.hippnet_data['sp'])  }
+        print "here"
+        new_root = tk.Tk()
+        print "hey"
+        resolver = ResolveWin(new_root, self.hippnet_data)
+        print "howdy"
+        new_root.mainloop()
+        print "here"
+        self.hippnet_data = resolver.df
     
-        tk.Label( self.spWin, text='Correct species mistakes if necessary', **self.LabelOpts).grid( row=0 ) 
-        #tk.Label( self.spWin, text='Raw',).grid( row=1,column=0 ) 
-        tk.Label( self.spWin, text='Enter Corrections',).grid( row=1 ) 
-        
-        for i,sp in enumerate( self.unique_sp ):
-            #tk.Label( self.spWin, text=sp, relief=tk.RIDGE).grid( row=i+2, column=0)
-            sp_entry = self.unique_sp[ sp ] 
-            sp_entry.grid( row=i+2)
-            sp_entry.insert(0, sp)
-
-        def CMD_resolveSpecies():
-            self.sp_map = { sp:val.get() for sp,val in self.unique_sp.items() if sp != val.get() }
-            if self.sp_map:
-                self.hippnet_data.replace( to_replace={'sp': self.sp_map} , inplace=True )
-
-            self.spWin.destroy() 
-            self.Text_ResolveSpecies = 'Resolved!'
-            self.Layout()
-            
-        tk.Button( self.spWin, text='Apply', relief=tk.RAISED , 
-                    font='BOLD',command=CMD_resolveSpecies).grid( row=len(self.unique_sp)+2)
+    #def resolveSpecies( self):
+    #    if not self._check_proc_complete( self.ColumnsMatched):
+    #        return
+    #    self.spWin = tk.Toplevel()
+    #    
+    #    self.unique_sp = { sp:tk.Entry(self.spWin) for sp in set( self.hippnet_data['sp'])  }
+   # 
+   #     tk.Label( self.spWin, text='Correct species mistakes if necessary', **self.LabelOpts).grid( row=0 ) 
+   #     #tk.Label( self.spWin, text='Raw',).grid( row=1,column=0 ) 
+   #     tk.Label( self.spWin, text='Enter Corrections',).grid( row=1 ) 
+   #     
+   #     for i,sp in enumerate( self.unique_sp ):
+   #         #tk.Label( self.spWin, text=sp, relief=tk.RIDGE).grid( row=i+2, column=0)
+   #         sp_entry = self.unique_sp[ sp ] 
+   #         sp_entry.grid( row=i+2)
+   #         sp_entry.insert(0, sp)
+#
+#        def CMD_resolveSpecies():
+#            self.sp_map = { sp:val.get() for sp,val in self.unique_sp.items() if sp != val.get() }
+#            if self.sp_map:
+#                self.hippnet_data.replace( to_replace={'sp': self.sp_map} , inplace=True )
+#
+#            self.spWin.destroy() 
+#            self.Text_ResolveSpecies = 'Resolved!'
+#            self._layout()
+#            
+#        tk.Button( self.spWin, text='Apply', relief=tk.RAISED , 
+#                    font='BOLD',command=CMD_resolveSpecies).grid( row=len(self.unique_sp)+2)
 
 #########################
 # MULTIPLE STEMS HELPER # 
@@ -471,10 +458,8 @@ class App:
         lab.grid(row=0)
         
         self.col_vars = { col:tk.IntVar() for col in column_list }
-        #self.selColFromList_cbs = []
         for i,col in enumerate( self.col_vars ):
             cb = tk.Checkbutton(self.winCanvasFrame, text=col, variable=self.col_vars[ col ] ).grid( row = i+1, sticky=tk.W )
-            #self.selColFromList_cbs.append(cb)
 
         def CMD_multiStem():
             for col in self.col_vars:
@@ -484,11 +469,8 @@ class App:
             self.winCanvasFrame.destroy()
             self.winVSB.destroy()
             self.selColFromList_b.destroy()
-            #for cb in self.selColFromList_cbs:
-            #    cb.destroy()
-            
             closer()
-
+        
         self.selColFromList_b = tk.Button( self.winCanvasFrame, text='SELECT',relief=tk.RAISED, command = CMD_multiStem)
         self.selColFromList_b.grid( row=len( self.col_vars)+2)
 
@@ -496,18 +478,16 @@ class App:
 # MULTI STEMS #
 ###############
     def multiStem(self):
-        if not self.checkDatabaseLoaded():
+        if not self._check_proc_complete( self.DatabaseLoaded ):
             return
         self.multiStemWin = tk.Toplevel()
         self.multi_stem_names = []
         self.selectColFromList( self.multiStemWin, list(self.hippnet_data), self.multiStemCloser, self.multi_stem_names )
         
     def multiStemCloser( self) :
-        self.MultiStemSelected = True
+        self.MultiStemSelected['done'] = True
         self.Text_MultiStem = 'Selected!'
-        self.Layout()
-
-        
+        self._layout()
         if self.multi_stem_names:
             self.hippnet_data.replace( to_replace= {name:{0:np.nan} for name in self.multi_stem_names} , inplace=True )
             self.map_multi_names = {name:'dbh_%d'%(index+1) for index,name in enumerate(self.multi_stem_names) }
@@ -521,7 +501,7 @@ class App:
 # ADDITIONAL MULTI STEMS #
 ##########################
     def moreMultiStem( self):
-        if not self.checkColumnsMatched():
+        if not self._check_proc_complete( self.ColumnsMatched):
             return
 
         if not self.checkMultiStem():
@@ -575,7 +555,7 @@ class App:
                 self.hippnet_data = pandas.concat( (self.hippnet_data, more_mstems_df) ,axis=1 )
                 
                 self.Text_MoreMultiStem = 'Selected'
-                self.Layout()
+                self._layout()
                 self.moreMstemWin.destroy()
             
             self.moreInColumn_b1 = tk.Button( self.moreMstemWin, text='Select', command=CMD_grabFromColumn )
@@ -663,7 +643,7 @@ class App:
         ctfs_merger_col = self.ctfs_mstem_merger.get()
         self.mstem_data.rename( columns = {self.mstem_merge_column: ctfs_merger_col }, inplace=True)
         self.Text_MoreMultiStem = 'Selected'
-        self.Layout()
+        self._layout()
         if self.more_multi_stem_names:
             self.mstem_data = self.mstem_data[ [ctfs_merger_col]+self.more_multi_stem_names ] 
 #           max nomstem from main database
@@ -681,10 +661,10 @@ class App:
 # SAVE AND FINISH #
 ###################
     def Finish(self):
-        if not self.checkColumnsMatched():
+        if not self._check_proc_complete(self.ColumnsMatched):
             return
 
-        if not self.checkStatusResolved():
+        if not self._check_proc_complete(self.StatusResolved):
             return 
 
         # sort the mstems columns
@@ -708,7 +688,7 @@ class App:
 
         output_cols  = [ col for col in self.ctfs_names if col in list(self.hippnet_data) ] 
         output_cols += mstem_cols 
-        output_cols += ['DFstatus', 'status', 'gx', 'gy', 'StemTag', 'stemID', 'agb', 'CensusID', 'codes' ]
+        output_cols += ['DFstatus', 'status', 'gx', 'gy', 'StemTag', 'stemID', 'agb', 'CensusID', 'codes', 'hom', 'date' ]
        
         self.hippnet_data = self.hippnet_data.loc[:, output_cols]
 
@@ -735,13 +715,6 @@ class App:
             if self.xlsx_var.get():
                 try:
                     self.hippnet_data.to_excel(outfile_xlsx , float_format='%.2f' , na_rep='NA' , index=False)
-                    #xlsx_saveWin = tk.Toplevel()
-                    #xlsx_saveWin.title('Saving...')
-                    #prog = ttk.Progressbar( xlsx_saveWin,mode='indeterminate')
-                    #prog.grid(row=0)
-                    #prog.start()
-                    #prog.stop()
-                    #xlsx_saveWin.destroy()
 
                 except ImportError:
                     errorWin = tk.Toplevel()
@@ -749,20 +722,13 @@ class App:
                     tk.Button(errorWin, text='Ok', command=errorWin.destroy ).grid(row=1)
             if self.pkl_var.get():
                 self.hippnet_data.to_pickle(outfile_pkl)
-                #pkl_saveWin = tk.Toplevel()
-                #pkl_saveWin.title('Saving...')
-                #prog = ttk.Progressbar( pkl_saveWin,mode='indeterminate')
-                #prog.grid(row=0)
-                #prog.start()
-                #prog.stop()
-                #pkl_saveWin.destroy()
             
-            self.containerFrame.destroy()
+            self.container_frame.destroy()
             self.saveWin.destroy()
             
-            tk.Label(self.mainFrame, text='Mahalo HIPPNET!').grid(row=0,columnspan=2)
-            tk.Button( self.mainFrame, text='Aloha', command = self.master.destroy ).grid(row=1,column=0)
-            tk.Button( self.mainFrame, text='Restart', command = self.restartLoop ).grid(row=1,column=1)
+            tk.Label(self.main_frame, text='Mahalo HIPPNET!').grid(row=0,columnspan=2)
+            tk.Button( self.main_frame, text='Aloha', command = self.master.destroy ).grid(row=1,column=0)
+            tk.Button( self.main_frame, text='Restart', command = self.restartLoop ).grid(row=1,column=1)
         
         self.saveDir = os.getcwd()
         tk.Label( self.saveWin, text='Current Output Directory:', **self.LabelOpts).grid( row=2, column=0)
@@ -786,6 +752,7 @@ class App:
         launch  = App( root  )
         root.mainloop()
 
-root    = tk.Tk()
-launch  = App( root  )
-root.mainloop()
+if __name__ == '__main__':
+    root    = tk.Tk()
+    launch  = App( root  )
+    root.mainloop()
