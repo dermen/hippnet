@@ -6,15 +6,18 @@ import tkFont
 
 import pandas
 
-class EditorApp:
+class EditorApp( tk.Frame ):
     def __init__( self, master, dataframe , edit_rows = [] ):
         """ master    : tK parent widget
         dataframe : pandas.DataFrame object"""
-        self.root = master
-        self.root.minsize(width=600, height=400)
-        self.root.title('database editor')
+        
+        tk.Frame.__init__(self,master)
+        
+        self.master = master
+        self.master.minsize(width=600, height=400)
+        self.master.title('database editor')
 
-        self.main = tk.Frame( self.root )
+        self.main = tk.Frame( self.master )
         self.main.pack(fill=tk.BOTH, expand=True)
 
         self.lab_opt = { 'background':'darkgreen', 'foreground':'white'  }
@@ -25,7 +28,6 @@ class EditorApp:
         edit_rows = list(edit_rows)
         if edit_rows:
             self.dat_rows = edit_rows
-            print edit_rows[0]
         else:
             self.dat_rows = range( len( self.df ))
         self.rowmap   =  { i:row for i,row in enumerate(self.dat_rows ) }
@@ -48,7 +50,7 @@ class EditorApp:
 # ADDING WIDGETS #
 ##################
     def _fill( self):
-        self.canvas = tk.Canvas( self.main )
+        self.canvas = tk.Canvas(self.main)
         self.canvas.pack(fill=tk.BOTH, expand=tk.YES)
 
         self._init_scroll()
@@ -122,7 +124,7 @@ class EditorApp:
         items = self.lb.curselection()
         if items:
             new_item = items[-1]
-            dataVal = str( self.df.ix[ self.rowmap[new_item], self.opt_var.get()] )
+            dataVal = str( self.df.ix[self.rowmap[new_item], self.opt_var.get()] )
             self.entry_box_old.config( state=tk.NORMAL)
             self.entry_box_old.delete(0,tk.END)
             self.entry_box_old.insert(0, dataVal)
@@ -244,7 +246,9 @@ class EditorApp:
             for idx, val in updated_vals['vals'].items():
                 self.row = self.rowmap[idx]
                 self.idx = idx
-                self.df.set_value(self.row, updated_vals['col'] , val )
+                val_type = self.df.dtypes[ updated_vals['col'] ]
+                val_as_type = pandas.np.array( [val], dtype=val_type)[0]
+                self.df.set_value(self.row, updated_vals['col'] , val_as_type )
                 self._rewrite()
             self.sync_subdata()
 
@@ -268,7 +272,9 @@ class EditorApp:
     def _setval(self):
         """ update database"""
         try: 
-            self.df.set_value( self.row, self.col, self.entry_box_new.get() )
+            new_val_type = self.df.dtypes[ self.col]
+            new_val = pandas.np.array( [self.entry_box_new.get()], dtype=new_val_type)[0]
+            self.df.set_value( self.row, self.col, new_val )
         except ValueError:
             self.errmsg('Invalid entry `%s` for column `%s`!'%(self.entry_box_new.get(), self.col ) ) 
 
@@ -304,8 +310,9 @@ class EditorApp:
 ##################
     def _rewrite(self): 
         """ re-writing the dataframe string in the listbox"""
-        new_col_vals = self.df.ix[ self.row , self.dat_cols ].astype(str).tolist() 
-        new_line     = self._make_line( new_col_vals ) 
+        new_col_vals    = [ self.df.ix[ self.row , col ] for col in self.dat_cols]
+        new_col_val_str = [ str(val) for val in new_col_vals]
+        new_line        = self._make_line( new_col_val_str )
         if self.lb.cget('state') == tk.DISABLED:
             self.lb.config(state=tk.NORMAL)
             self.lb.delete(self.idx)
@@ -328,13 +335,17 @@ class EditorApp:
         new_line = "".join(new_line_entries)
         return new_line
 
+    def get_df( self):
+        return self.df
+
 def main():
 #   make a test dataframe here of integers, can be anything really
     df = pandas.DataFrame(pandas.np.random.randint(0,100, (1000, 20)), columns=['col_%d'%x for x in xrange( 20 ) ] ) 
 
 #   start
-    root      = tk.Tk()
+    root       = tk.Tk()
     editor     = EditorApp(  root, df )
+    editor.pack()
     root.mainloop() # until closes window
 
 #   re-assign dataframe    

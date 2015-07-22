@@ -14,7 +14,7 @@ import pandas
 sys.path.append('/Users/mender/HIPPNET/hippnet')
 import helper
 import resolver
-ResolveWin = resolver.ResolveWin
+ResolveData = resolver.ResolveData
 
 
 class App:
@@ -397,43 +397,17 @@ class App:
     def resolveSpecies(self):
         if not self._check_proc_complete( self.ColumnsMatched):
             return
-        print "here"
-        new_root = tk.Tk()
-        print "hey"
-        resolver = ResolveWin(new_root, self.hippnet_data)
-        print "howdy"
-        new_root.mainloop()
-        print "here"
-        self.hippnet_data = resolver.df
+        self.res_win = tk.Toplevel()
+        self.resolver = ResolveData(self.res_win, self.hippnet_data)
+        self.resolver.pack(side=tk.LEFT, fill=tk.BOTH)
+        bframe = tk.Frame(self.res_win, bd=3, relief=tk.RIDGE)
+        bframe.pack(side=tk.LEFT,fill=tk.BOTH)
+        b = tk.Button(bframe, text='Exit', command=self._exit_resolve, bd=4, relief=tk.RAISED)
+        b.pack( side=tk.LEFT, fill=tk.BOTH)
     
-    #def resolveSpecies( self):
-    #    if not self._check_proc_complete( self.ColumnsMatched):
-    #        return
-    #    self.spWin = tk.Toplevel()
-    #    
-    #    self.unique_sp = { sp:tk.Entry(self.spWin) for sp in set( self.hippnet_data['sp'])  }
-   # 
-   #     tk.Label( self.spWin, text='Correct species mistakes if necessary', **self.LabelOpts).grid( row=0 ) 
-   #     #tk.Label( self.spWin, text='Raw',).grid( row=1,column=0 ) 
-   #     tk.Label( self.spWin, text='Enter Corrections',).grid( row=1 ) 
-   #     
-   #     for i,sp in enumerate( self.unique_sp ):
-   #         #tk.Label( self.spWin, text=sp, relief=tk.RIDGE).grid( row=i+2, column=0)
-   #         sp_entry = self.unique_sp[ sp ] 
-   #         sp_entry.grid( row=i+2)
-   #         sp_entry.insert(0, sp)
-#
-#        def CMD_resolveSpecies():
-#            self.sp_map = { sp:val.get() for sp,val in self.unique_sp.items() if sp != val.get() }
-#            if self.sp_map:
-#                self.hippnet_data.replace( to_replace={'sp': self.sp_map} , inplace=True )
-#
-#            self.spWin.destroy() 
-#            self.Text_ResolveSpecies = 'Resolved!'
-#            self._layout()
-#            
-#        tk.Button( self.spWin, text='Apply', relief=tk.RAISED , 
-#                    font='BOLD',command=CMD_resolveSpecies).grid( row=len(self.unique_sp)+2)
+    def _exit_resolve(self):
+        self.res_win.destroy()
+        self.hippnet_data = self.resolver.df
 
 #########################
 # MULTIPLE STEMS HELPER # 
