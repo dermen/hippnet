@@ -8,8 +8,10 @@ import pandas
 
 class EditorApp( tk.Frame ):
     def __init__( self, master, dataframe , edit_rows = [] ):
-        """ master    : tK parent widget
-        dataframe : pandas.DataFrame object"""
+        """ GUI tkinter frame for making simple edits to a database.
+        master: tK parent widget
+        dataframe : pandas.DataFrame object
+        edit_rows : indexes of rows to load, default [] loads whole database"""
         
         tk.Frame.__init__(self,master)
         
@@ -24,17 +26,20 @@ class EditorApp( tk.Frame ):
 
 #       the dataframe
         self.df       = dataframe
-        self.dat_cols = list( self.df ) 
+        self.dat_cols = list(self.df) 
         edit_rows = list(edit_rows)
         if edit_rows:
             self.dat_rows = edit_rows
         else:
-            self.dat_rows = range( len( self.df ))
+            self.dat_rows = self.df.index
         self.rowmap   =  { i:row for i,row in enumerate(self.dat_rows ) }
 
 #       subset the data and convert to giant list of strings (rows) for viewing        
         self.sub_data      = self.df.ix[ self.dat_rows, self.dat_cols  ]
-        self.sub_datstring = self.sub_data.to_string(index=False, col_space=13).split('\n')
+        self.sub_datstring = self.sub_data.to_string(index=False, col_space=13, 
+                                                     formatters={c:str for c in self.dat_cols}, 
+                                                     justify='right')
+        self.sub_datstring = self.sub_datstring.replace('\n', ' \n').split('\n') #adds a space to end of each line so we can match columns
         self.title_string  = self.sub_datstring[0]
 
 #       save the format of the lines, so we can update them without re-running df.to_string()
@@ -45,6 +50,9 @@ class EditorApp( tk.Frame ):
 
 #       updater for tracking changes to the database
         self.update_history = []
+
+#       container for rows which will be deleted upon exit
+        self.to_delete  = []
 
 ##################
 # ADDING WIDGETS #
@@ -108,6 +116,7 @@ class EditorApp( tk.Frame ):
     def _pack_bind_lb(self):
         self.title_lb.pack(fill=tk.X) 
         self.lb.pack(fill="both", expand=True)
+
         self.title_lb.bind("<MouseWheel>", self._onMouseWheel)
         self.lb.bind("<MouseWheel>", self._onMouseWheel)
 
@@ -118,6 +127,7 @@ class EditorApp( tk.Frame ):
             self.lb.insert(tk.END, line) 
             self.lb.bind('<ButtonRelease-1>',self._listbox_callback)
         self.lb.select_set(0)
+        
 
     def _listbox_callback(self, event):
         """ when a listbox item is selected"""
@@ -158,13 +168,22 @@ class EditorApp( tk.Frame ):
         self.entry_box_new = tk.Entry( self.editorFrame, bd=2, relief=tk.GROOVE)
         self.entry_box_new.grid( row=1, column=3, sticky=tk.E+tk.W)
 
+#       make undo button
+        self.undo_b = tk.Button( self.editorFrame, text='Undo', command = self._undo)
+        self.undo_b.grid(row=2, columnspan=1, column=0, sticky=tk.W+tk.E)
+
+#       make undelete button
+        self.undelete_b = tk.Button( self.editorFrame, text='Undelete', command = self._undelete)
+        self.undelete_b.grid(row=2, columnspan=1, column=1, sticky=tk.W+tk.E)
+
+#       make delete button
+        self.delete_b = tk.Button( self.editorFrame, text='Delete', command = self._delete)
+        self.delete_b.grid(row=2, columnspan=1, column=2, sticky=tk.W+tk.E)
+
 #       make update button      
         self.update_b = tk.Button( self.editorFrame, text='Update selection', relief=tk.RAISED, command=self._updateDF_multi )
         self.update_b.grid(row=2, columnspan=1, column=3, sticky=tk.W+tk.E) 
 
-#       make undo button
-        self.undo_b = tk.Button( self.editorFrame, text='Undo', command = self._undo)
-        self.undo_b.grid(row=2, columnspan=1, column=1, sticky=tk.W+tk.E)
 
 ################
 # SELECT MODES #
@@ -223,6 +242,15 @@ class EditorApp( tk.Frame ):
         self.col = self.opt_var.get()
         items = self.lb.curselection()
         self._track_items( items)
+    
+    def _delete(self):
+        """ command for updating via selection"""
+        items    = self.lb.curselection()
+        self._delete_items(items)
+    
+    def _undelete(self):
+        items    = self.lb.curselection()
+        self._undelete_items(items)
 
     def _updateDF_findrep(self):
         """ command for updating via find/replace"""
@@ -296,6 +324,24 @@ class EditorApp( tk.Frame ):
         """ syncs subdata with data"""
         self.sub_data = self.df.ix[ self.dat_rows, self.dat_cols  ]
 
+    def _delete_items(self, items):
+        for i in items:
+            row = self.rowmap[i]
+            print row, self.to_delete
+            if row not in self.to_delete:
+                self.to_delete.append(row)
+            self.lb.itemconfig(i, {'fg':'white', 'bg':'red'})
+            self.lb.selection_clear(i)
+    
+    def _undelete_items(self, items):
+        for i in items:
+            row = self.rowmap[i]
+            print row, self.to_delete
+            if row in self.to_delete:
+                self.to_delete.remove(row)
+            self.lb.itemconfig(i, {'fg':'black', 'bg':'white'}) 
+            self.lb.selection_clear(i)
+
 #################
 # ERROR MESSAGE #
 #################
@@ -325,9 +371,9 @@ class EditorApp( tk.Frame ):
     def _get_line_format(self, line) :
         """ save the format of the title string, stores positions
             of the column breaks"""
-        pos = [1+line.find(' '+n)+len(n) for n in self.dat_cols]
+        pos = [1+line.find(' %s '%n)+len(n) for n in self.dat_cols]
         self.entry_length = [pos[0]] + [ p2-p1 for p1,p2 in zip(  pos[:-1], pos[1:] ) ]
-
+         
     def _make_line( self , col_entries):
         """ add a new line to the database in the correct format"""
         new_line_entries = [ ('{0: >%d}'%self.entry_length[i]).format(entry)  
@@ -335,7 +381,13 @@ class EditorApp( tk.Frame ):
         new_line = "".join(new_line_entries)
         return new_line
 
-    def get_df( self):
+##########################
+# RETRIEVE THE DATAFRAME #
+##########################
+    def get_df(self):
+        if self.to_delete:
+            self.df.drop( self.to_delete, inplace=True)
+            self.df.reset_index(drop=True, inplace=True)
         return self.df
 
 def main():

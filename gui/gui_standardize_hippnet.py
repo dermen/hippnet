@@ -44,25 +44,27 @@ class App:
     def _make_main_frame_lab_text(self):
         self.Text_DataBase       = 'Not selected.'
         self.Text_PlotCorner     = 'Not defined.'
-        self.Text_ColSelect      = 'Not matched.'
-        self.Text_CensusID       = 'Not assigned.'
+        self.Text_ColSelect         = 'Not matched.'
+        self.Text_CensusID         = 'Not assigned.'
+        self.Text_ResolveRawStatus  = 'Unresolved'
         self.Text_ResolveStatus  = 'Unresolved'
-        self.Text_ResolveSpecies = 'Unresolved'
+        self.Text_ResolveColumns = ''
         self.Text_MultiStem      = 'Unresolved'
         self.Text_MoreMultiStem  = 'Unresolved'
 
     def _init_plotCorner_censusID_multiStem(self):
-        #self.censusx0000 = 0
-        #self.censusy0000 = 0
-        self.censusx0000 = 260420.001
-        self.censusy0000 = 2205378.002
+        self.censusx0000 = 0
+        self.censusy0000 = 0
+        self.censusx0000 = 185950
+        self.censusy0000 = 2185420
 
-        self.censusID    = 2 #0
+        self.censusID    = 3 #0
         self.multi_stem_names = []
     
     def _init_proc_check_vars(self):
         self.DatabaseLoaded    = {'done':False, 'mssg':'Load a MYSWL database first!'}
         self.ColumnsMatched    = {'done':False, 'mssg':'Match columns First!'}
+        self.ResolveRawStatus  = {'done':False, 'mssg':'Resolve Status First!'}
         self.CensusNumSet      = {'done':False, 'mssg':'Set Census ID first!'}
         self.PlotCornerSet     = {'done':False, 'mssg':'Set plot corner first!'}
         self.StatusResolved    = {'done':False, 'mssg':'Resolve status columns first!'}
@@ -85,32 +87,35 @@ class App:
         tk.Button(self.container_frame, text='Define Plot Corner',                command=self.plotCorner ).grid(row=1, column=2)
         tk.Button(self.container_frame, text='Column Selector',                    command=self.colSelect ).grid(row=2, column=2)
         tk.Button(self.container_frame, text='Set a CensusID',                  command = self.setCensusID).grid(row=3, column=2)
-        tk.Button(self.container_frame, text='Resolve Status Column',         command = self.resolveStatus).grid(row=4, column=2)
-        tk.Button(self.container_frame, text='Resolve Species Column',       command = self.resolveSpecies).grid(row=5, column=2)
-        tk.Button(self.container_frame, text='Select Multiple Stems Columns',     command = self.multiStem).grid(row=6, column=2)
-        tk.Button(self.container_frame, text='Select More Multiple Stem Data',command = self.moreMultiStem).grid(row=7, column=2)
-        tk.Button(self.container_frame, text='Finished',                             command = self.Finish).grid(row=8, column=1)
-        tk.Button( self.container_frame, text='Restart',                       command =  self.restartLoop).grid(row=8, column=2)
+        tk.Button(self.container_frame, text='Resolve Raw Status',         command = self._resolveRawStatus).grid(row=4, column=2)
+        tk.Button(self.container_frame, text='Set CTFS DFstatus',         command = self.resolveStatus).grid(row=5, column=2)
+        tk.Button(self.container_frame, text='Resolve Column',       command = self.resolveColVals).grid(row=6, column=2)
+        tk.Button(self.container_frame, text='Select Multiple Stems Columns',     command = self.multiStem).grid(row=7, column=2)
+        tk.Button(self.container_frame, text='Select More Multiple Stem Data',command = self.moreMultiStem).grid(row=8, column=2)
+        tk.Button(self.container_frame, text='Finished',                             command = self.Finish).grid(row=9, column=1)
+        tk.Button( self.container_frame, text='Restart',                       command =  self.restartLoop).grid(row=10, column=2)
     
     def _text_layout(self):
         tk.Label(self.container_frame,       text=self.Text_DataBase).grid(row=0, column=1)
         tk.Label(self.container_frame,     text=self.Text_PlotCorner).grid(row=1, column=1)
         tk.Label(self.container_frame,      text=self.Text_ColSelect).grid(row=2, column=1)
         tk.Label(self.container_frame,       text=self.Text_CensusID).grid(row=3, column=1)
-        tk.Label(self.container_frame,  text=self.Text_ResolveStatus).grid(row=4, column=1)
-        tk.Label(self.container_frame, text=self.Text_ResolveSpecies).grid(row=5, column=1)
-        tk.Label(self.container_frame,      text=self.Text_MultiStem).grid(row=6, column=1)
-        tk.Label(self.container_frame, text=self.Text_MoreMultiStem).grid( row=7, column=1)
+        tk.Label(self.container_frame,  text=self.Text_ResolveRawStatus).grid(row=4, column=1)
+        tk.Label(self.container_frame,  text=self.Text_ResolveStatus).grid(row=5, column=1)
+        tk.Label(self.container_frame, text=self.Text_ResolveColumns).grid(row=6, column=1)
+        tk.Label(self.container_frame,      text=self.Text_MultiStem).grid(row=7, column=1)
+        tk.Label(self.container_frame, text=self.Text_MoreMultiStem).grid( row=8, column=1)
 
     def _label_layout(self):
         tk.Label(self.container_frame, text='Database Info:',   **self.LabelOpts).grid(row=0, column=0)
         tk.Label(self.container_frame, text='Plot Corner:',     **self.LabelOpts).grid(row=1, column=0)
         tk.Label(self.container_frame, text='Columns Matched:', **self.LabelOpts).grid(row=2, column=0)
         tk.Label(self.container_frame, text='CensusID:',        **self.LabelOpts).grid(row=3, column=0)
-        tk.Label(self.container_frame, text='Status Column:',   **self.LabelOpts).grid(row=4, column=0)
-        tk.Label(self.container_frame, text='Species Column:',  **self.LabelOpts).grid(row=5, column=0)
-        tk.Label(self.container_frame, text='Multiple Stems:',  **self.LabelOpts).grid(row=6, column=0)
-        tk.Label(self.container_frame, text='More Multiple Stems:',  **self.LabelOpts).grid(row=7,column=0)
+        tk.Label(self.container_frame, text='Resolve Raw Status:',   **self.LabelOpts).grid(row=4, column=0)
+        tk.Label(self.container_frame, text='Set DF Status:',   **self.LabelOpts).grid(row=5, column=0)
+        tk.Label(self.container_frame, text='Resolve:',  **self.LabelOpts).grid(row=6, column=0)
+        tk.Label(self.container_frame, text='Multiple Stems:',  **self.LabelOpts).grid(row=7, column=0)
+        tk.Label(self.container_frame, text='More Multiple Stems:',  **self.LabelOpts).grid(row=8,column=0)
 
 
     def _check_proc_complete(self, proc):
@@ -224,12 +229,12 @@ class App:
 # COLUMN SELECTION #
 ####################
     def colSelect(self):
-        #if not self._check_proc_complete( self.DatabaseLoaded ):
-        #    return
-        #if not self._check_proc_complete( self.CensusNumSet ):
-        #    return
-        #if not self._check_proc_complete( self.PlotCornerSet):
-        #    return
+        if not self._check_proc_complete( self.DatabaseLoaded ):
+            return
+        if not self._check_proc_complete( self.CensusNumSet ):
+            return
+        if not self._check_proc_complete( self.PlotCornerSet):
+            return
         
         self.loadCTFS_standard()
 
@@ -247,21 +252,21 @@ class App:
         self.matches = [ tk.StringVar() for c in self.ctfs_names ]
         for i,c in enumerate( self.ctfs_names) : # in self.matches:
             if c== 'tag':
-                self.matches[i].set( 'New_tag')
+                self.matches[i].set( 'RE_TAG')
             elif c== 'sp':
-                self.matches[i].set( 'Species')
+                self.matches[i].set( 'SPECIES')
             elif c== 'x':
-                self.matches[i].set( 'X')
+                self.matches[i].set( 'x')
             elif c== 'y':
-                self.matches[i].set( 'Y')
+                self.matches[i].set( 'y')
             elif c== 'dbh':
-                self.matches[i].set( 'DBH_2010')
+                self.matches[i].set( 'DBH_2011')
             elif c== 'ExactDate':
-                self.matches[i].set( 'Date_')
+                self.matches[i].set( 'RE_DATE')
             elif c== 'RawStatus':
-                self.matches[i].set( 'Status')
+                self.matches[i].set( 'RE_STATUS')
             elif c== 'nostems':
-                self.matches[i].set( 'NUM_OF_Stems')
+                self.matches[i].set( 'RE_NSTEMS')
             else:
                 self.matches[i].set('*MISSING*')
         
@@ -347,6 +352,8 @@ class App:
     def resolveStatus( self):
         if not self._check_proc_complete( self.ColumnsMatched):
             return
+        if not self._check_proc_complete( self.ResolveRawStatus):
+            return
         
         self.statusWin = tk.Toplevel()
         self.unique_status = {  stat:tk.StringVar() for stat 
@@ -391,14 +398,24 @@ class App:
         tk.Button( self.statusWin, text='Apply', relief=tk.RAISED , font='BOLD',
                     command=CMD_resolveStatus).grid( row=len(self.unique_status)+2, columnspan=2)
 
-###########################
-# TREE SPECIES RESOLUTION #
-###########################
-    def resolveSpecies(self):
+    def _resolveRawStatus(self):
         if not self._check_proc_complete( self.ColumnsMatched):
             return
-        self.res_win = tk.Toplevel()
-        self.resolver = ResolveData(self.res_win, self.hippnet_data)
+        self.resolveColVals(edit_this_col='RawStatus')
+        self.ResolveRawStatus['done'] = True
+        self.Text_ResolveRawStatus  = 'Resolved!'
+
+###########################
+# COLUMN VALUE RESOLUTION #
+###########################
+    def resolveColVals(self, edit_this_col=None):
+        if not self._check_proc_complete( self.ColumnsMatched):
+            return
+        self.res_win  = tk.Toplevel()
+        if edit_this_col:
+            self.resolver = ResolveData(self.res_win, self.hippnet_data, edit_this_col)
+        else:
+            self.resolver = ResolveData(self.res_win, self.hippnet_data)
         self.resolver.pack(side=tk.LEFT, fill=tk.BOTH)
         bframe = tk.Frame(self.res_win, bd=3, relief=tk.RIDGE)
         bframe.pack(side=tk.LEFT,fill=tk.BOTH)
@@ -476,9 +493,6 @@ class App:
 ##########################
     def moreMultiStem( self):
         if not self._check_proc_complete( self.ColumnsMatched):
-            return
-
-        if not self.checkMultiStem():
             return
 
         self.moreMstemWin = tk.Toplevel(width=400,height=300)
