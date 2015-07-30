@@ -4,6 +4,8 @@ except ImportError:
     import tkinter as tk
 import tkFont
 
+from prettytable import PrettyTable
+
 import pandas
 
 class EditorApp( tk.Frame ):
@@ -36,14 +38,17 @@ class EditorApp( tk.Frame ):
 
 #       subset the data and convert to giant list of strings (rows) for viewing        
         self.sub_data      = self.df.ix[ self.dat_rows, self.dat_cols  ]
-        self.sub_datstring = self.sub_data.to_string(index=False, col_space=13, 
-                                                     formatters={c:str for c in self.dat_cols}, 
-                                                     justify='right')
-        self.sub_datstring = self.sub_datstring.replace('\n', ' \n').split('\n') #adds a space to end of each line so we can match columns
+        
+        self._make_pretty_table()
+        
+        #self.sub_datstring = self.sub_data.to_string(index=False, col_space=13, 
+                                                     #formatters={c:str for c in self.dat_cols}, 
+                                                     #justify='right')
+        #self.sub_datstring = self.sub_datstring.replace('\n',' \n').split('\n') #adds a space to end of each line so we can match columns
         self.title_string  = self.sub_datstring[0]
 
 #       save the format of the lines, so we can update them without re-running df.to_string()
-        self._get_line_format(self.title_string)
+        #self._get_line_format(self.title_string)
 
 #       fill in the main frame 
         self._fill()
@@ -128,7 +133,6 @@ class EditorApp( tk.Frame ):
             self.lb.bind('<ButtonRelease-1>',self._listbox_callback)
         self.lb.select_set(0)
         
-
     def _listbox_callback(self, event):
         """ when a listbox item is selected"""
         items = self.lb.curselection()
@@ -327,7 +331,6 @@ class EditorApp( tk.Frame ):
     def _delete_items(self, items):
         for i in items:
             row = self.rowmap[i]
-            print row, self.to_delete
             if row not in self.to_delete:
                 self.to_delete.append(row)
             self.lb.itemconfig(i, {'fg':'white', 'bg':'red'})
@@ -336,7 +339,6 @@ class EditorApp( tk.Frame ):
     def _undelete_items(self, items):
         for i in items:
             row = self.rowmap[i]
-            print row, self.to_delete
             if row in self.to_delete:
                 self.to_delete.remove(row)
             self.lb.itemconfig(i, {'fg':'black', 'bg':'white'}) 
@@ -356,9 +358,11 @@ class EditorApp( tk.Frame ):
 ##################
     def _rewrite(self): 
         """ re-writing the dataframe string in the listbox"""
-        new_col_vals    = [ self.df.ix[ self.row , col ] for col in self.dat_cols]
-        new_col_val_str = [ str(val) for val in new_col_vals]
-        new_line        = self._make_line( new_col_val_str )
+        new_col_vals = self.df.iloc[ self.row].tolist()
+        #new_col_vals    = [ self.df.ix[ self.row , col ] for col in self.dat_cols]
+        #new_col_val_str = [ str(val) for val in new_col_vals]
+        #new_line        = self._make_line( new_col_val_str )
+        new_line     = self._make_pretty_line( new_col_vals)
         if self.lb.cget('state') == tk.DISABLED:
             self.lb.config(state=tk.NORMAL)
             self.lb.delete(self.idx)
@@ -375,11 +379,46 @@ class EditorApp( tk.Frame ):
         self.entry_length = [pos[0]] + [ p2-p1 for p1,p2 in zip(  pos[:-1], pos[1:] ) ]
          
     def _make_line( self , col_entries):
-        """ add a new line to the database in the correct format"""
+        """ add a new line to the database in the correct format
+            col_entries must be strings!"""
         new_line_entries = [ ('{0: >%d}'%self.entry_length[i]).format(entry)  
                             for  i,entry in enumerate(col_entries) ] 
         new_line = "".join(new_line_entries)
         return new_line
+
+    def _make_pretty_line( self, col_vals):
+        self.pretty.add_row( col_vals )
+        new_str = self.pretty.get_string(header=False)
+        new_line = new_str.splitlines()[-2] # most recent line sans the end chars 
+        self.pretty.del_row(row_index=self.pretty_start+1)
+        return new_line
+
+    def _make_pretty_table(self):
+        pretty = PrettyTable(list( self.sub_data))
+        pretty.padding_width=2
+        for row in self.sub_data.index:
+            pretty.add_row( self.sub_data.iloc[row].tolist() )
+        pretty_str = pretty.get_string()
+        self.sub_datstring = pretty_str.splitlines()
+        self.sub_datstring.pop(0)
+        self.sub_datstring.pop(1)
+        self.sub_datstring.pop(-1)
+        
+        self.pretty=pretty
+        self._preserve_pretty()
+
+    def _preserve_pretty(self):
+        lines_split       = [ map( lambda x: x.count(' ') ,l.split('|')[1:-1] ) 
+                             for l in self.sub_datstring ]
+        keep_these_inds = list(set( pandas.np.argmax( lines_split, axis=0)))
+        keep_these_inds += list(set( pandas.np.argmin( lines_split, axis=0)))
+        print keep_these_inds
+        self.pretty.clear_rows()
+        for ind in keep_these_inds:
+            self.pretty.add_row( self.sub_data.iloc[ind].tolist() )
+        self.pretty_start = len(keep_these_inds)-1
+        self.pretty_end   = len(keep_these_inds)
+        #self.pretty.clear_rows()
 
 ##########################
 # RETRIEVE THE DATAFRAME #
@@ -392,7 +431,7 @@ class EditorApp( tk.Frame ):
 
 def main():
 #   make a test dataframe here of integers, can be anything really
-    df = pandas.DataFrame(pandas.np.random.randint(0,100, (1000, 20)), columns=['col_%d'%x for x in xrange( 20 ) ] ) 
+    df = pandas.DataFrame(pandas.np.random.random((1000, 20)), columns=['col_%d'%x for x in xrange( 20 ) ] ) 
 
 #   start
     root       = tk.Tk()
