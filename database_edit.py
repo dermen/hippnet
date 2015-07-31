@@ -21,7 +21,7 @@ class EditorApp( tk.Frame ):
         self.master.minsize(width=600, height=400)
         self.master.title('database editor')
 
-        self.main = tk.Frame( self.master )
+        self.main = tk.Frame( self.master)
         self.main.pack(fill=tk.BOTH, expand=True)
 
         self.lab_opt = { 'background':'darkgreen', 'foreground':'white'  }
@@ -38,7 +38,7 @@ class EditorApp( tk.Frame ):
 
 #       subset the data and convert to giant list of strings (rows) for viewing        
         self.sub_data      = self.df.ix[ self.dat_rows, self.dat_cols  ]
-        
+
         self._make_pretty_table()
         
         #self.sub_datstring = self.sub_data.to_string(index=False, col_space=13, 
@@ -396,8 +396,8 @@ class EditorApp( tk.Frame ):
     def _make_pretty_table(self):
         pretty = PrettyTable(list( self.sub_data))
         pretty.padding_width=2
-        for row in self.sub_data.index:
-            pretty.add_row( self.sub_data.iloc[row].tolist() )
+        for row in xrange(len(self.sub_data)):
+            pretty.add_row( self.sub_data.iloc[row,].tolist() )
         pretty_str = pretty.get_string()
         self.sub_datstring = pretty_str.splitlines()
         self.sub_datstring.pop(0)
@@ -412,7 +412,6 @@ class EditorApp( tk.Frame ):
                              for l in self.sub_datstring ]
         keep_these_inds = list(set( pandas.np.argmax( lines_split, axis=0)))
         keep_these_inds += list(set( pandas.np.argmin( lines_split, axis=0)))
-        print keep_these_inds
         self.pretty.clear_rows()
         for ind in keep_these_inds:
             self.pretty.add_row( self.sub_data.iloc[ind].tolist() )
