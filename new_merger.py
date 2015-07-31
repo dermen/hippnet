@@ -1,4 +1,5 @@
 import os
+import collections
 
 import pandas
 np = pandas.np
@@ -49,46 +50,106 @@ gen_tag_dupes  = (dfs_j.loc(axis=0)[key,:].iloc[inds].reset_index()[ ['level_0',
                     for key,inds in u_tags_pos.iteritems() if inds.size)
 dupes_df_tag   = pandas.concat( gen_tag_dupes,ignore_index=True )
 
-gb_tag  = dupes_df_tag.groupby(['location','tag'])
-correct = [tag for tag,count in Counter( tag for loc,tag in gb_tag.groups ).iteritems() if count ==1]
-correct = set(correct)
-wrong   = [tag for tag,count in Counter( tag for loc,tag in gb_tag.groups ).iteritems() if count > 1]
-wrong  += [tag for (loc,tag),inds in gb_tag.groups.iteritems() if len(inds) == 1]
-wrong = set(wrong)
+#=============================================================
 
+#####################################
+# GROUP BY TAG AND MAKE CORRECTIONS #
+#####################################
+gb_tag  = dupes_df_tag.groupby(['location','tag'])
+
+########################################
+# A correct grouping will only have    #
+# one record in gb_tag.groups          #
+# (one tag at one x,y for wach census) #
+########################################
+correct = [tag for tag,count in collections.Counter( tag for loc,tag in gb_tag.groups ).iteritems() if count ==1]
+correct = set(correct)
 for tag in correct:
     group   = gb_tag.get_group( [g for g in gb_tag.groups if g[1] == tag][0] )
     new_loc = group.tag.astype(int).astype(str) + group[loc_col]
     index   = map(tuple, group[['level_0','level_1']].values )
     dfs_j.ix[index,loc_col] = new_loc.values
 
+####################################
+# Otherwise, there is ambiguity    #
+# which can only be solved by user #
+# investigation of the data        #
+####################################
+wrong   = [tag for tag,count in collections.Counter( tag for loc,tag in gb_tag.groups ).iteritems() if count > 1]
+wrong  += [tag for (loc,tag),inds in gb_tag.groups.iteritems() if len(inds) == 1]
+wrong   = set(wrong)
+inds_wrong = []
+for group, inds in gb_tag.groups.iteritems():
+    if group[1] in wrong:
+        inds_wrong += inds
+dupes_df = dupes_df_tag.ix[inds_wrong, [l for l in list(dupes_df_tag) if not l.startswith('dbh_')] ]
+dupes_df.reset_index(drop=True,inplace=True)
 
-#gb = dupes_df_tag.groupby(['tag','location'])
-
-dupes_df       = pandas.merge( left=dupes_df_tag,right=dupes_df_loc, on=['tag','location'], how='outer')
-
-############################################################################################ 
-# if there is a dupicate then it will show up as a row of NaN vals for one of the censuses #
-############################################################################################
-
-#where_nan_row = [i for i in xrange(len(dupes_df)) if np.isnan(dupes_df.iloc[i]['gx_x']) or np.isnan(dupes_df.iloc[i]['gx_y']) ]
-
-#print where_nan_row
-
-#dupes_df.append( pandas.concat(gen_tag_dupes,ignore_index=True),ignore_index=True)
-
-cols = [ 'CensusID', 'gx', 'gy','sp','quadrat','subquad','dbh','ExactDate','notes','RawStatus' ]
-dupes_df = dupes_df[ ['tag', 'location']+ map(lambda x:x+'_x',cols) + map(lambda x:x+'_y', cols) ]
-
+################
+# the GUI part #
+################
 root         = tk.Tk()
+root.title('Select rows that corrspond to the same tree')
 editor_frame = Editor(root, dupes_df)
 data_lb      = editor_frame.lb
+row_map      = editor_frame.rowmap
+errmsg       = editor_frame.errmsg
 
+
+grouped_items   = []
+group_names     = dfs_j[loc_col].tolist()
+new_loc_counter = 0
+
+def group_sel():
+    global grouped_items,group_names, new_loc_counter
+
+    items = data_lb.curselection()
+    items_already_grouped = [i for i in items if i in grouped_items ]
+    
+    if items and not items_already_grouped:
+        rows  = [ row_map[i] for i in items ] 
+        group = dupes_df.ix[ rows, ]
+
+        new_loc = str(new_loc_counter)
+        while new_loc in group_names:
+            new_loc_counter += 1
+            new_loc = str(new_loc_counter)
+        group_names.append( new_loc)
+        index     = map(tuple, group[['level_0','level_1']].values )
+        dfs_j.ix[index,loc_col] = new_loc 
+        for i in items:
+            data_lb.itemconfig(i, {'bg':'black'})
+            data_lb.selection_clear(i)
+        grouped_items += items
+    
+    elif items_already_grouped:
+        errmsg('please only select un-grouped items')
+
+def group_done():
+    global grouped_items, group_names, new_loc_counter
+    
+    remaining_items = [ i for i in xrange( data_lb.size()) if int(i) not in grouped_items ]
+    remaining_rows = [ row_map[i] for i in remaining_items]
+    for row in remaining_rows:
+        new_loc = str(new_loc_counter) # give it a unique group
+        while new_loc in group_names: # if group exists, iterate
+            new_loc_counter += 1
+            new_loc = str(new_loc_counter)
+        group_names.append( new_loc)
+        group   = dupes_df.ix[ row, ]
+        index   = map(tuple, group[['level_0','level_1']].values )
+        dfs_j.ix[index, loc_col ] = new_loc
+    
+    root.destroy()
+
+group_button = tk.Button(root,text='Group selection', command=group_sel )
+done_button  = tk.Button(root,text='Done grouping', command=group_done)
+
+group_button.pack()
+done_button.pack()
 editor_frame.pack()
 root.mainloop()
 
-
-
-
+# CONTINUE HERE
 
 
