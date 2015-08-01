@@ -175,11 +175,20 @@ else:
     dfs_j = pandas.read_pickle('dfs_j.pkl')
 
 dfs_j = pandas.read_pickle('dfs_j.pkl')
+writer = pandas.ExcelWriter('%s_report.xlsx'%plot_name)
 
-# CONTINUE HERE
-# BEGINNING CORRECTIONS
 
-#====================
+#============================
+# BEGINNING ERROR CORRECTIONS
+
+#--------------------
+# Assigin the tree ID
+treeID_map = { loc:i for i,loc in enumerate(pandas.unique(dfs_j[loc_col])) }
+treeID     = [ treeID_map[ l ]  for l in dfs_j[loc_col] ]
+dfs_j.ix[:,'treeID'] = treeID
+#--------------------
+
+#--------------------
 # NOSTEMS corrections
 dbh_cols = ['dbh'] + ['dbh_%d'%x for x in xrange(1,max_stems+1)] # colums corresponding to the dbh values
 
@@ -195,21 +204,61 @@ dfs_j.replace(to_replace={c:dbh_na_map for c in dbh_cols}, inplace=True)
 nostems_actual   = dfs_j.ix[:,dbh_cols].notnull().sum(axis=1)
 nostems_err_inds = np.where( nostems_actual != dfs_j.nostems )[0]
 if nostems_err_inds.size:
-    subdata = dfs_j.iloc[nostems_err_inds]
+    subdata = dfs_j.iloc[nostems_err_inds].sortlevel(0)
     if writer:
         subdata.to_excel( writer, 'nostem_mistakes', float_format='%.2f' , na_rep='NA') 
     dfs_j.update(nostems_actual.iloc[nostems_err_inds].to_frame('nostems') )
+#--------------------
 
+#---------------
+# X,Y duplicates
 dfs_j_flat     = dfs_j.reset_index() # flatten so we can groupby levels easier
 xy_groups      = dfs_j_flat.groupby(['level_0','gx','gy'])
-xy_dupe_inds   = [inds for group,inds in gb.groups.iteritems() if len(inds) > 1 ]
+xy_dupe_inds   = [inds for group,inds in xy_groups.groups.iteritems() if len(inds) > 1 ]
 if xy_dupe_inds:
     xy_dupe_inds   = [i for sublist in xy_dupe_inds for i in sublist] # 2d to 1d
 #   re-index multi_index
     index          = map(tuple, dfs_j_flat.ix[xy_dupe_inds,['level_0','level_1']].values )
-    subdata     = dfs_j.ix[index,]
+    subdata     = dfs_j.ix[index,].sortlevel(0)
     if writer:
         subdata.to_excel( writer, 'xy_duplicates', float_format='%.2f' , na_rep='NA') 
+#---------------
+
+#---------------
+# TAG duplicates
+tag_groups      = dfs_j_flat.groupby(['level_0','tag'])
+tag_dupe_inds   = [inds for group,inds in tag_groups.groups.iteritems() if len(inds) > 1 ]
+if tag_dupe_inds:
+    tag_dupe_inds   = [i for sublist in tag_dupe_inds for i in sublist] # 2d to 1d
+#   re-index multi_index
+    index          = map(tuple, dfs_j_flat.ix[tag_dupe_inds,['level_0','level_1']].values )
+    subdata     = dfs_j.ix[index,].sortlevel(0)
+    if writer:
+        subdata.to_excel( writer, 'tag_duplicates', float_format='%.2f' , na_rep='NA') 
+#---------------
+
+# GROUP BY TREE_ID TO CHECK FOR CHANGES
+id_groups       = dfs_j.groupby( ['treeID'] )
+
+#-----------------
+# TAGs that change
+tags_per_treeID = id_groups['tag'].unique()
+tags_changed    = [ treeID for treeID,tags in tags_per_treeID.iteritems() if len(tags) > 1 ]
+if tags_changed:
+    subdata = pandas.concat([ id_groups.get_group(treeID) for treeID in tags_changed], keys=tags_changed )
+    if writer:
+        subdata.to_excel( writer, 'tags_changed', float_format='%.2f' , na_rep='NA') 
+#-----------------
+
+#--------------------
+# SPECIES that change
+sp_per_treeID = id_groups['sp'].unique()
+sp_changed    = [ treeID for treeID,sp_vals in sp_per_treeID.iteritems() if len(sp_vals) > 1 ]
+if sp_changed:
+    subdata = pandas.concat([ id_groups.get_group(treeID) for treeID in sp_changed], keys=sp_changed )
+    if writer:
+        subdata.to_excel( writer, 'sp_changed', float_format='%.2f' , na_rep='NA') 
+#--------------------
 
 
 if writer:
