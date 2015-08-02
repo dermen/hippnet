@@ -174,12 +174,12 @@ if not os.path.exists('dfs_j.pkl'):
 else:
     dfs_j = pandas.read_pickle('dfs_j.pkl')
 
-dfs_j = pandas.read_pickle('dfs_j.pkl')
+dfs_j  = pandas.read_pickle('dfs_j.pkl')
 writer = pandas.ExcelWriter('%s_report.xlsx'%plot_name)
 
 
-#============================
-# BEGINNING ERROR CORRECTIONS
+#=====================
+# BEGIN ERROR CHECKING
 
 #--------------------
 # Assigin the tree ID
@@ -259,7 +259,58 @@ if sp_changed:
     if writer:
         subdata.to_excel( writer, 'sp_changed', float_format='%.2f' , na_rep='NA') 
 #--------------------
+#=====================
 
+#==========================
+# BEGIN STACKING THE LEVELS 
+# sigh
+
+# all census IDs
+allcensuses       = np.unique( dfs_j.CensusID)
+nostem_per_treeID = id_groups['nostems'].unique()
+census_per_treeID = id_groups['CensusID'].unique()
+
+output_cols = [c for c in list(dfs_j) if not c.startswith('dbh')] #every col except the mstem cols
+melts   = [] #pandas.DataFrame(columns=output_cols+ ['mstem', 'dbh'])
+
+my_vals   = ['gx','gy','x','y','subquad','quadrat','sp','treeID', 'tag']
+id_groups = dfs_j.reset_index(drop=True).groupby( ['treeID'] )
+
+records = [] # prior and missing etc
+for tree in np.unique(dfs_j.treeID):
+    group     = id_groups.get_group(tree)
+    vals      = group.iloc[0].to_dict()
+    censuses  = census_per_treeID[tree]
+    where_new = censuses.min()
+    new_items = [ (key,vals[key]) for key in my_vals ]
+
+    new_censuses = np.setdiff1d( allcensuses, censuses) 
+    prior        = new_censuses[ new_censuses < where_new] 
+    missing      = new_censuses[ new_censuses > where_new] 
+
+    for c in prior:
+        records.append(dict( new_items+[('CensusID',c),('RawStatus', 'prior')]) )
+    for c in missing:
+        records.append(dict( new_items+[('CensusID',c),('RawStatus', 'no_record')]) )
+
+new_data    = pandas.DataFrame.from_records(records)
+data        = pandas.concat((dfs_j, new_data),ignore_index=True)
+gb          = data.groupby('treeID')
+nostems_max = gb.nostems.max()
+
+# ~ MELT ~
+id_vars = [c for c in list(subdata) if c not in dbh_cols] 
+melted_data = []
+for n in np.unique(nostems_max).astype(int):
+    trees   = nostems_max.loc[ nostems_max==n].index.values
+    subdata = data[ data['treeID'].isin(trees) ]
+    melted  = pandas.melt( subdata, value_vars=dbh_cols[:n] , var_name='stem', value_name='dbh', id_vars=id_vars)
+    #if writer:
+    #    melted.to_excel( writer, 'nostems_%d'%(n), float_format='%.2f' , na_rep='NA') 
+    melted_data.append( melted)
+
+output = pandas.concat( melted_data, ignore_index=True)
+output.to_pickle( 'stacked.pkl')
 
 if writer:
     writer.save()
