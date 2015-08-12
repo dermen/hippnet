@@ -9,7 +9,7 @@ from prettytable import PrettyTable
 import pandas
 
 class EditorApp( tk.Frame ):
-    def __init__( self, master, dataframe , edit_rows = [] ):
+    def __init__( self, master, dataframe , edit_rows=[] , edit_cols=[], set_col=None):
         """ GUI tkinter frame for making simple edits to a database.
         master: tK parent widget
         dataframe : pandas.DataFrame object
@@ -28,27 +28,39 @@ class EditorApp( tk.Frame ):
 
 #       the dataframe
         self.df       = dataframe
-        self.dat_cols = list(self.df) 
-        edit_rows = list(edit_rows)
+        
+        edit_cols = list(edit_cols)
+        if edit_cols:
+            self.dat_cols = edit_cols
+        else:
+            self.dat_cols = list(self.df)
+       
+        if set_col:
+            self.set_col = set_col
+        else:
+            self.set_col = self.dat_cols[0]
+
+        edit_rows     = list(edit_rows)
         if edit_rows:
             self.dat_rows = edit_rows
         else:
             self.dat_rows = self.df.index
-        self.rowmap   =  { i:row for i,row in enumerate(self.dat_rows ) }
+        self.rowmap =  { i:row for i,row in enumerate(self.dat_rows ) }
 
-#       subset the data and convert to giant list of strings (rows) for viewing        
-        self.sub_data      = self.df.ix[ self.dat_rows, self.dat_cols  ]
+#       subset the data and convert to giant list of strings (rows) for viewing
+        self.sub_data = self.df.ix[ self.dat_rows, self.dat_cols  ]
 
-        self._make_pretty_table()
-        
-        #self.sub_datstring = self.sub_data.to_string(index=False, col_space=13, 
-                                                     #formatters={c:str for c in self.dat_cols}, 
-                                                     #justify='right')
-        #self.sub_datstring = self.sub_datstring.replace('\n',' \n').split('\n') #adds a space to end of each line so we can match columns
-        self.title_string  = self.sub_datstring[0]
+        #self._make_pretty_table()
+        #### 
+        self.sub_datstring = self.sub_data.to_string(index=False, col_space=13, 
+                                                     formatters={c:str for c in self.dat_cols}, 
+                                                     justify='right')
+        self.sub_datstring = self.sub_datstring.replace('\n',' \n').split('\n') #adds a space to end of each line so we can match columns
+        ####
+        self.title_string = self.sub_datstring[0]
 
 #       save the format of the lines, so we can update them without re-running df.to_string()
-        #self._get_line_format(self.title_string)
+        self._get_line_format(self.title_string)
 
 #       fill in the main frame 
         self._fill()
@@ -157,7 +169,7 @@ class EditorApp( tk.Frame ):
         self.col_sel_lab.grid( row=0, columnspan=2,sticky=tk.W+tk.E)
 
         self.opt_var= tk.StringVar(self.editorFrame)
-        self.opt_var.set(self.dat_cols[0])
+        self.opt_var.set(self.set_col)
         self.opt = tk.OptionMenu( self.editorFrame, self.opt_var, *list(self.df) )
         self.opt.grid(row=0, columnspan=2,column=2, sticky=tk.E+tk.W)
 
@@ -280,7 +292,8 @@ class EditorApp( tk.Frame ):
                 self.idx = idx
                 val_type = self.df.dtypes[ updated_vals['col'] ]
                 val_as_type = pandas.np.array( [val], dtype=val_type)[0]
-                self.df.set_value(self.row, updated_vals['col'] , val_as_type )
+                #self.df.set_value(self.row, updated_vals['col'] , val_as_type )
+                self.df.ix[ self.row, updated_vals['col']] = val_as_type
                 self._rewrite()
             self.sync_subdata()
 
@@ -306,7 +319,8 @@ class EditorApp( tk.Frame ):
         try: 
             new_val_type = self.df.dtypes[ self.col]
             new_val = pandas.np.array( [self.entry_box_new.get()], dtype=new_val_type)[0]
-            self.df.set_value( self.row, self.col, new_val )
+            self.df.ix[self.row,self.col] = new_val
+            #self.df.set_value( self.row, self.col, new_val )
         except ValueError:
             self.errmsg('Invalid entry `%s` for column `%s`!'%(self.entry_box_new.get(), self.col ) ) 
 
@@ -360,9 +374,11 @@ class EditorApp( tk.Frame ):
         """ re-writing the dataframe string in the listbox"""
         new_col_vals = self.df.iloc[ self.row].tolist()
         #new_col_vals    = [ self.df.ix[ self.row , col ] for col in self.dat_cols]
-        #new_col_val_str = [ str(val) for val in new_col_vals]
-        #new_line        = self._make_line( new_col_val_str )
-        new_line     = self._make_pretty_line( new_col_vals)
+        
+        new_col_val_str = [ str(val) for val in new_col_vals]
+        new_line        = self._make_line( new_col_val_str )
+        
+        #new_line     = self._make_pretty_line( new_col_vals)
         if self.lb.cget('state') == tk.DISABLED:
             self.lb.config(state=tk.NORMAL)
             self.lb.delete(self.idx)

@@ -1,24 +1,31 @@
 import os
 import itertools
+try:
+    import Tkinter as tk
+except ImportError:
+    import tkinter as tk
 
 import pandas
-np = pandas.np
+import numpy as np
 
+cwd = os.getcwd()
+os.chdir('/Users/mender/HIPPNET/hippnet' )
 import merge_censuses as help_merge
 import database_edit
+os.chdir(cwd)
 find_dupe = help_merge.find_duplicate_inds
-Editor    = database_edit.EditorApp
-tk        = database_edit.tk
+Editor = database_edit.EditorApp
 
-pkl_dir   = '/Users/mender/Desktop'
-#plot_name = 'Lau_check'
+pkl_dir = '/Users/mender/Desktop'
+plot_name = 'Lau_check'
 #plot_name = 'Pal_check'
-plot_name = 'Sanc_check'
-yrs       = [2012,2013,2014]
+#plot_name = 'Mam_check'
+#plot_name = 'Sanc_check'
+yrs = [2009,2010,2011,2012,2013]
 
 pkl_files = [os.path.join( pkl_dir, '%s_%d.pkl'%(plot_name,yr)) for yr in yrs ] 
-keys      = ['%s_%d'%(plot_name,yr) for yr in yrs ]
-loc_col   = 'location'
+keys = ['%s_%d'%(plot_name,yr) for yr in yrs ]
+loc_col = 'location'
 try: 
     writer = pandas.ExcelWriter('%s_report.xlsx'%plot_name)
 except ImportError:
@@ -26,53 +33,77 @@ except ImportError:
 
 #==============================
 # LOAD THE INDIVIDUAL DATA SETS
-dfs            = [ pandas.read_pickle(pkl_f) for pkl_f in pkl_files ]
-max_dbh_col    = max([max(help_merge.getDBHcol(df)) for df in dfs ] )
-max_stems      = max_dbh_col + 1
+dfs = [ pandas.read_pickle(pkl_f) for pkl_f in pkl_files ]
+max_dbh_col = max([max(help_merge.getDBHcol(df)) for df in dfs ] )
+max_stems = max_dbh_col + 1
 for df in dfs:
+    df.drop_duplicates(inplace=True)
+    df.reset_index(drop=True,inplace=True)
     help_merge.addDBH_NA( df, max_dbh_col )
     help_merge.assert_not_null(df)
     help_merge.make_locator_col(df,name=loc_col)
 
-dfs_j     = pandas.concat( dfs, keys=keys)
+dfs_j = pandas.concat( dfs, ignore_index=True) #, keys=keys)
 
-gen_dfs   = ((key,dfs_j.loc(axis=0)[key,:]) for key in keys)
-dupes     = { key:find_dupe(df, col=loc_col)[0] for key,df in gen_dfs }
+gb = dfs_j.groupby(( loc_col, 'CensusID' ))
+gb_sizes = gb.size().reset_index(name='sizes')
+gb_dupes = gb_sizes.loc[ gb_sizes.sizes > 1 ]
+ulocs = gb_dupes[loc_col].unique()
 
-dupe_locs  = [set( dfs_j.loc(axis=0)[key,inds][loc_col] )
-              for key,inds in dupes.iteritems() ]
-u_locs     = reduce( lambda x,y:x.union(y), dupe_locs)
-u_locs_pos = {key: np.where(dfs_j.loc(axis=0)[key,:].reset_index()[loc_col].isin(u_locs) )[0] 
-              for key in keys}
+utags = dfs_j.loc[ dfs_j[loc_col].isin(ulocs) ]['tag'].unique()
+dupes_df = dfs_j.loc[ np.logical_or( dfs_j[loc_col].isin(ulocs), dfs_j.tag.isin(utags)) ]
 
-dupe_tags  = [set( dfs_j.loc(axis=0)[key,inds]['tag'] )
-              for key,inds in dupes.iteritems() ]
-u_tags     = reduce( lambda x,y:x.union(y), dupe_tags)
-u_tags_pos = {key: np.where(dfs_j.loc(axis=0)[key,:].reset_index()['tag'].isin(u_tags) )[0] 
-              for key in keys}
+dupes_df.drop_duplicates(inplace=True)
+dupes_df = dupes_df.sort( ['tag','CensusID'])
 
-gen_loc_dupes  = (dfs_j.loc(axis=0)[key,:].iloc[inds].reset_index()
-                    for key,inds in u_locs_pos.iteritems() if inds.size)
-try:
-    dupes_df_loc   = pandas.concat( gen_loc_dupes )
-except ValueError:
-    dupes_df_loc = None
+#gb_loc      = dfs_j.groupby( (loc_col, 'CensusID' ))
+#group_sizes = gb_loc.size().reset_index(name='sizes')
+#dupes       = group_sizes.loc[ group_sizes.sizes > 1 ]
 
-gen_tag_dupes  = (dfs_j.loc(axis=0)[key,:].iloc[inds].reset_index()
-                    for key,inds in u_tags_pos.iteritems() if inds.size)
-try:
-    dupes_df_tag   = pandas.concat( gen_tag_dupes )
-except ValueError:
-    dupes_df_tag = None
+#u_locs      = dupes[loc_col].unique()
+#u_tags      = dfs_j.ix[ dfs_j[loc_col].isin(u_locs), 'tag' ].unique()
 
-if dupes_df_tag is not None and dupes_df_loc is None:
-    dupes_df = dupes_df_tag
-elif dupes_df_loc is not None and dupes_df_tag is None:
-    dupes_df = dupes_df_loc
-elif dupes_df_loc is not None and dupes_df_tag is not None:
-    dupes_df = pandas.concat( (dupes_df_tag,dupes_df_loc),ignore_index=True ).drop_duplicates()
-else:
-    dupes_df = None
+#dupes_dfs_j = dfs_j.loc[ np.logical_or( dfs_j.tag.isin(u_tags), dfs_j[loc_col].isin(u_locs)) ]
+
+#dfs_j     = pandas.concat( dfs, ignore_index=True)
+
+#gen_dfs   = ((key,dfs_j.loc(axis=0)[key,:]) for key in keys)
+#dupes     = { key:find_dupe(df, col=loc_col)[0] for key,df in gen_dfs }
+
+#dupe_locs  = [set( dfs_j.loc(axis=0)[key,inds][loc_col] )
+#              for key,inds in dupes.iteritems() ]
+#u_locs     = reduce( lambda x,y:x.union(y), dupe_locs)
+#u_locs_pos = {key: np.where(dfs_j.loc(axis=0)[key,:].reset_index()[loc_col].isin(u_locs) )[0] 
+#              for key in keys}
+
+#dupe_tags  = [set( dfs_j.loc(axis=0)[key,inds]['tag'] )
+#              for key,inds in dupes.iteritems() ]
+#u_tags     = reduce( lambda x,y:x.union(y), dupe_tags)
+#u_tags_pos = {key: np.where(dfs_j.loc(axis=0)[key,:].reset_index()['tag'].isin(u_tags) )[0] 
+#              for key in keys}
+
+#gen_loc_dupes  = (dfs_j.loc(axis=0)[key,:].iloc[inds].reset_index()
+#                    for key,inds in u_locs_pos.iteritems() if inds.size)
+#try:
+#    dupes_df_loc   = pandas.concat( gen_loc_dupes )
+#except ValueError:
+#    dupes_df_loc = None
+
+#gen_tag_dupes  = (dfs_j.loc(axis=0)[key,:].iloc[inds].reset_index()
+#                    for key,inds in u_tags_pos.iteritems() if inds.size)
+#try:
+#    dupes_df_tag   = pandas.concat( gen_tag_dupes )
+#except ValueError:
+#    dupes_df_tag = None
+
+#if dupes_df_tag is not None and dupes_df_loc is None:
+#    dupes_df = dupes_df_tag
+#elif dupes_df_loc is not None and dupes_df_tag is None:
+#    dupes_df = dupes_df_loc
+#elif dupes_df_loc is not None and dupes_df_tag is not None:
+#    dupes_df = pandas.concat( (dupes_df_tag,dupes_df_loc),ignore_index=True ).drop_duplicates()
+#else:
+#    dupes_df = None
 #==============================
 
 #==============================
@@ -80,41 +111,40 @@ else:
 if dupes_df is not None:
 #===========================================
 #   GROUP BY TAG/LOCATION AND MAKE CORRECTIONS
-
-    gb_dupes  = dupes_df.groupby([loc_col,'tag'])
+    gb_dupes  = dupes_df.groupby([loc_col])
 
 #--------------------------------------
 #   A correct grouping will only have
 #   one record in gb_dupe.groups
 #   (one tag at one x,y for wach census)
-    group_sizes = gb_dupes.size().reset_index(name='group_size') # makes loc_col and tag into columns so we can re-index later
+    #group_sizes = gb_dupes.size().reset_index(name='group_size') # makes loc_col and tag into columns so we can re-index later
     
-    correctly_grouped      = group_sizes.loc[ group_sizes.group_size == 1]
-    correctly_grouped_inds = correctly_grouped[[loc_col, 'tag']].values
-    correctly_grouped_inds = map( tuple, correctly_grouped_inds )
-    for group_index in correctly_grouped_inds:
-        group   = gb_dupes.get_group( group_index )
-        new_loc = group.tag.astype(int).astype(str) + group[loc_col]
-        index   = map(tuple, group[['level_0','level_1']].values )
-        dfs_j.ix[index,loc_col] = new_loc.values
+    #correctly_grouped      = group_sizes.loc[ group_sizes.group_size == 1]
+    #correctly_grouped_inds = correctly_grouped[[loc_col, 'tag']].values
+    #correctly_grouped_inds = map( tuple, correctly_grouped_inds )
+    #for group_index in correctly_grouped_inds:
+    #    group   = gb_dupes.get_group( group_index )
+    #    new_loc = group.tag.astype(int).astype(str) + group[loc_col]
+    #    index   = map(tuple, group[['level_0','level_1']].values )
+    #    dfs_j.ix[index,loc_col] = new_loc.values
 #--------------------------------------
 
 #-----------------------------------
 #   Otherwise, there is ambiguity
 #   which can only be solved by user
-#   investigation of the dat
-    wrongly_grouped      = group_sizes.loc[ group_sizes.group_size > 1]
-    wrongly_grouped_inds = wrongly_grouped[[loc_col, 'tag']].values
-    wrongly_grouped_inds = map( tuple, wrongly_grouped_inds )
+#   investigation of the data
+    #wrongly_grouped      = group_sizes.loc[ group_sizes.group_size > 1]
+    #wrongly_grouped_inds = wrongly_grouped[[loc_col, 'tag']].values
+    #wrongly_grouped_inds = map( tuple, wrongly_grouped_inds )
     
-    inds_wrong = []
-    for group_index in wrongly_grouped_inds:
-        dupe_df_inds = gb_dupes.groups[ group_index ]
-        inds_wrong += dupe_df_inds
-    inds_wrong = list(set(inds_wrong))
+    #inds_wrong = []
+    #for group_index in wrongly_grouped_inds:
+    #    dupe_df_inds = gb_dupes.groups[ group_index ]
+    #    inds_wrong += dupe_df_inds
+    #inds_wrong = list(set(inds_wrong))
 
-    dupes_df = dupes_df.ix[inds_wrong, [l for l in list(dupes_df) if not l.startswith('dbh_')] ]
-    dupes_df.reset_index(drop=True,inplace=True)
+    #dupes_df = dupes_df.ix[inds_wrong, [l for l in list(dupes_df) if not l.startswith('dbh_')] ]
+    #dupes_df.reset_index(drop=True,inplace=True)
 #   ...END...
 #-----------------------------------
 
@@ -124,7 +154,7 @@ if dupes_df is not None:
 #   Initialize
     root         = tk.Tk()
     root.title('Select rows that corrspond to the same tree')
-    editor_frame = Editor(root, dupes_df)
+    editor_frame = Editor(root, dupes_df,edit_cols=['tag','sp','gx','gy','CensusID',loc_col,'dbh', 'RawStatus'] )
     data_lb      = editor_frame.lb
     row_map      = editor_frame.rowmap
     errmsg       = editor_frame.errmsg
@@ -155,10 +185,10 @@ if dupes_df is not None:
                 new_loc_counter += 1
                 new_loc = str(new_loc_counter)
             group_names.append( new_loc)
-            index     = map(tuple, group[['level_0','level_1']].values )
+            index     = group.index.values #map(tuple, group[['level_0','level_1']].values )
             dfs_j.ix[index,loc_col] = new_loc 
             for i in items:
-                data_lb.itemconfig(i, {'bg':group_colors.next()})
+                data_lb.itemconfig(i, {'bg':'black','fg':'white'} ) #group_colors.next()})
                 data_lb.selection_clear(i)
             grouped_items += items
         
@@ -187,7 +217,7 @@ if dupes_df is not None:
             #dfs_j.ix[index, loc_col ] = new_loc
             
             group   = dupes_df.ix[ [row], ]
-            index   = map(tuple, group[['level_0','level_1']].values )
+            index   = group.index.values #map(tuple, group[['level_0','level_1']].values )
             dfs_j.drop(index, inplace=True)
              
         root.destroy()
@@ -350,13 +380,13 @@ tidy_data               = pandas.concat( melted_data, ignore_index=True)
 tidy_data.ix[:,'mstem'] = tidy_data.ix[:,'mstem'].map( lambda x:x.split('_')[-1] )
 tidy_data               = tidy_data.sort_index(by=['treeID','CensusID'])
 
-tidy_data.to_pickle('%s_stacked.pkl'%plot_name)
-tidy_data.to_csv('%s_stacked.txt'%plot_name, sep='\t', na_rep='NA', float_format='%.2f')
+#tidy_data.to_pickle('%s_stacked.pkl'%plot_name)
+#tidy_data.to_csv('%s_stacked.txt'%plot_name, sep='\t', na_rep='NA', float_format='%.2f')
 
 if writer:
     writer.save()
 
 # MAKE SUPER BEAUTIFUL XLSX DATA VIEWER
 beautiful_data = tidy_data.groupby(('treeID','CensusID','mstem')).first()
-beautiful_data.to_excel( '%s_beauty.xlsx'%plot_name, na_rep='NA', float_format='%.2f')
+#beautiful_data.to_excel( '%s_beauty.xlsx'%plot_name, na_rep='NA', float_format='%.2f')
 
